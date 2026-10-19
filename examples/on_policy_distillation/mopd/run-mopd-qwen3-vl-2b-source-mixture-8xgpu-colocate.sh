@@ -48,7 +48,7 @@ PROJECT_NAME="${PROJECT_NAME:-Relax/recipes/mopd}"
 EXP_NAME="${EXP_NAME:-mopd-qwen3-vl-2b-source-mixture-8xgpu-colocate}"
 EXP_DIR="${EXP_DIR:-${SCRIPT_DIR}/../../../../exps}"
 MODEL_DIR="${MODEL_DIR:-${EXP_DIR}}"
-DATA_DIR="${DATA_DIR:-${EXP_DIR}}"
+export DATA_DIR="${DATA_DIR:-${EXP_DIR}}"
 SAVE_DIR="${SAVE_DIR:-${EXP_DIR}/save}"
 NUM_ROLLOUT="${NUM_ROLLOUT:-10}"
 
