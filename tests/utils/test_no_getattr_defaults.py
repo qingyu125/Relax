@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from relax.utils.args_finalize import RUNTIME_DERIVED_DEFAULTS
-from tests.support.args import build_relax_argparser, declared_parameter_names
+from tests.support.args import build_relax_argparser
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -42,10 +42,18 @@ def _is_args_like(repo_path: str, obj: str) -> bool:
 
 
 def _own_parameters() -> set[str]:
-    """Relax 自有参数的声明名集合（含 pre-parse 与运行期派生属性）。"""
+    """Relax 自有参数的声明名集合（含 pre-parse 与运行期派生属性）。
+
+    注意不要用 tests.support.args.declared_parameter_names()：它额外包含
+    Megatron 字段镜像（seq_length、profile_ranks 等），那些字段不属于 Relax 声明，
+    允许按 getattr 读取。
+    """
+    # 先借构造器安装可选依赖桩，再导入参数定义模块。
     parser = build_relax_argparser()
+    from relax.utils.arguments import build_pre_parse_parser
+
     names = {action.dest for action in parser._actions if action.dest != "help"}
-    names |= set(declared_parameter_names())
+    names |= {action.dest for action in build_pre_parse_parser()._actions if action.dest != "help"}
     names |= set(RUNTIME_DERIVED_DEFAULTS)
     return names
 
