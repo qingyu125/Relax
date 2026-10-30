@@ -165,10 +165,14 @@ def test_validate_ref_load_without_model_source_still_requires_local_path(tmp_pa
 def test_provider_source_is_attached_before_same_uri_ref_validation(monkeypatch, arguments_module):
     pytest.importorskip("megatron.training.arguments")
     from relax.backends.megatron import arguments as megatron_arguments
+    from relax.utils.arguments import build_pre_parse_parser
+    from tests.support.args import build_relax_args
 
     logical_uri = "somesource://models/policy"
     source = m.ModelSource("s3://bucket/models/policy/", provider_name="test")
-    parsed = SimpleNamespace(
+    # 解析阶段的参数对象必须完整：pre 复用 pre-parse 声明，parsed 复用完整构造器，
+    # 只声明本用例关心的差异。稀疏对象会让 _parse_args_impl 里的直接读取先失败。
+    parsed = build_relax_args(
         hf_checkpoint=logical_uri,
         ref_load=logical_uri,
         train_backend="megatron",
@@ -177,12 +181,9 @@ def test_provider_source_is_attached_before_same_uri_ref_validation(monkeypatch,
         actor_num_nodes=1,
         actor_num_gpus_per_node=1,
     )
-    pre = SimpleNamespace(
-        debug_train_only=True,
-        debug_rollout_only=True,
-        load_debug_rollout_data=None,
-        skip_hf_validate=False,
-    )
+    pre = build_pre_parse_parser().parse_args([])
+    pre.debug_train_only = True
+    pre.debug_rollout_only = True
     provider_argv = None
     validated = False
 
