@@ -16,6 +16,7 @@ except ModuleNotFoundError:
 from transformers import AutoConfig
 
 from relax.backends.megatron.args_compat import (
+    fill_missing_boolean_fields,
     resolve_aliased_field,
     resolve_optimizer_precision_args,
     set_rope_type_default,
@@ -96,6 +97,9 @@ def _validate_linear_cp_mode(args: Namespace, config: Optional[object] = None) -
 def validate_args(args):
     """Run megatron's own validate_args plus slime-specific megatron
     validations."""
+
+    # 兼容直接从上游 parser 拿到、未经过 megatron_parse_args 的参数对象。
+    fill_missing_boolean_fields(args)
 
     if args.dynamic_context_parallel:
         _validate_dynamic_context_parallel(args)
@@ -336,6 +340,9 @@ def megatron_parse_args(
 ):
     """Parse megatron args, validate HF config, and set defaults."""
     args = _megatron_parse_args(extra_args_provider=extra_args_provider, ignore_unknown_args=True)
+    # 上游某些分支（NPU 侧 Megatron）没有声明 Relax 会读取的布尔开关，
+    # 在校验与任何直读之前统一补齐，避免 AttributeError。
+    fill_missing_boolean_fields(args)
 
     if model_source is not None:
         # Keep the CLI path so node-local materialization can remap other

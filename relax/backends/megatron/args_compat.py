@@ -52,6 +52,17 @@ FP16_OPTIMIZER_FALLBACKS: dict[str, Any] = {
 # 仅这两项的取值参与 loss scale 合法性校验（见 validate_fp16_optimizer_args）。
 DYNAMIC_LOSS_SCALE_FIELDS: tuple[str, ...] = ("initial_loss_scale", "min_loss_scale")
 
+# 布尔开关：某些 Megatron 分支（例如 NPU 侧的 MindSpeed）没有声明这些参数，
+# 解析后字段根本不存在，而 Relax 会在校验与业务代码里直接读取。
+# 语义：未声明 == 未启用 == False；一旦启用，仍由能力校验决定是否支持。
+MEGATRON_BOOLEAN_FALLBACKS: dict[str, tuple[bool, str]] = {
+    "dynamic_context_parallel": (
+        False,
+        "NPU 侧 Megatron 未声明该开关；未启用即等价于 False，启用时由 "
+        "_validate_dynamic_context_parallel 做 npu/mpu 能力校验。",
+    ),
+}
+
 
 def resolve_aliased_field(args: Any, name: str) -> tuple[str, Any]:
     """按 ``FIELD_ALIASES`` 解析字段改名。
@@ -86,6 +97,17 @@ def supports_dynamic_context_parallel() -> bool:
     from megatron.core import mpu
 
     return "dynamic_context_parallel" in inspect.signature(mpu.initialize_model_parallel).parameters
+
+
+def fill_missing_boolean_fields(args: Any) -> None:
+    """在首次校验与直读之前，为上游未声明的布尔开关补 ``False``。
+
+    只补 **缺失** 的字段，已提供的值（包括显式 ``True``）一律保留，因此可以重复调用。 与
+    ``resolve_aliased_field`` 的区别：这里处理的是"上游根本没有这个参数"，而不是改名。
+    """
+    for name, (default, _) in MEGATRON_BOOLEAN_FALLBACKS.items():
+        if not hasattr(args, name):
+            setattr(args, name, default)
 
 
 def uses_canonical_norm_epsilon(args: Any) -> bool:

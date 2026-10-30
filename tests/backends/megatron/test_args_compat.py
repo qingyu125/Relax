@@ -99,6 +99,36 @@ def test_supports_dynamic_context_parallel_requires_megatron():
     assert isinstance(args_compat.supports_dynamic_context_parallel(), bool)
 
 
+def test_fill_missing_boolean_fields_adds_absent_switch():
+    """NPU 侧 Megatron 没有声明该开关：补 False，而不是让直读抛 AttributeError。"""
+    args = Namespace()
+
+    args_compat.fill_missing_boolean_fields(args)
+
+    assert args.dynamic_context_parallel is False
+
+
+def test_fill_missing_boolean_fields_preserves_provided_value():
+    args = Namespace(dynamic_context_parallel=True)
+
+    args_compat.fill_missing_boolean_fields(args)
+
+    assert args.dynamic_context_parallel is True
+
+
+def test_fill_missing_boolean_fields_is_idempotent():
+    args = Namespace()
+    args_compat.fill_missing_boolean_fields(args)
+    args_compat.fill_missing_boolean_fields(args)
+    assert args.dynamic_context_parallel is False
+
+
+def test_boolean_fallback_table_documents_its_reason():
+    for name, (default, reason) in args_compat.MEGATRON_BOOLEAN_FALLBACKS.items():
+        assert isinstance(default, bool), name
+        assert reason, name
+
+
 def test_uses_canonical_norm_epsilon_detects_modern_name():
     assert args_compat.uses_canonical_norm_epsilon(Namespace(norm_epsilon=1e-6)) is True
 
