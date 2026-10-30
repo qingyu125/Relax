@@ -6,6 +6,7 @@
 优雅跳过，保持 CPU CI 可跑。
 """
 
+import sys
 from argparse import Namespace
 
 import pytest
@@ -98,15 +99,26 @@ def test_supports_dynamic_context_parallel_requires_megatron():
     assert isinstance(args_compat.supports_dynamic_context_parallel(), bool)
 
 
-def test_megatron_test_defaults_match_upstream():
+def test_uses_canonical_norm_epsilon_detects_modern_name():
+    assert args_compat.uses_canonical_norm_epsilon(Namespace(norm_epsilon=1e-6)) is True
+
+
+def test_uses_canonical_norm_epsilon_detects_legacy_name():
+    assert args_compat.uses_canonical_norm_epsilon(Namespace(layernorm_epsilon=1e-5)) is False
+
+
+def test_megatron_test_defaults_match_upstream(monkeypatch):
     """测试侧镜像的 Megatron 字段必须与上游默认值一致。"""
     pytest.importorskip("megatron.training.arguments")
 
     from megatron.training.arguments import parse_args as megatron_parse_args
 
-    from tests.support.args import MEGATRON_TEST_DEFAULTS
+    from tests.support.megatron_defaults import MEGATRON_TEST_DEFAULTS
 
-    upstream = megatron_parse_args(extra_args_provider=None, args_defaults={})
+    # 上游 parse_args 只接受 (extra_args_provider, ignore_unknown_args)，且会读取
+    # sys.argv；这里显式隔离，避免 pytest 的命令行被当成 Megatron 参数。
+    monkeypatch.setattr(sys, "argv", ["megatron"])
+    upstream = megatron_parse_args(extra_args_provider=None)
     for name, value in MEGATRON_TEST_DEFAULTS.items():
         if not hasattr(upstream, name):
             # 该字段在当前 Megatron 版本由其他解析路径提供，镜像值仅用于构造测试对象。
