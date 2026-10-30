@@ -43,8 +43,7 @@ def _ensure_router_stub() -> None:
     """保证 RouterArgs 具备 add_cli_args 签名。
 
     其他测试（例如 test_arguments_spec_driven）会把 RouterArgs 替换成 ``object`` 以
-    隔离依赖，本构造器复用同一个模块对象，因此需要在校验前补齐可调用的桩。
-    真实 sglang_router 不受影响。
+    隔离依赖，本构造器复用同一个模块对象，因此需要在校验前补齐可调用的桩。 真实 sglang_router 不受影响。
     """
     module = sys.modules.get("sglang_router.launch_router")
     if module is None:
@@ -58,8 +57,7 @@ def _install_optional_dependency_stubs() -> None:
     """在没有 sglang 可选依赖的环境里让参数定义模块可导入。
 
     CPU CI 不安装 sglang/sglang_router，而 ``relax.utils.arguments`` 在模块顶层就引用
-    它们。这里只补最小桩：参数声明本身由 Relax 提供，桩不影响任何默认值。
-    真实依赖存在时不做任何替换。
+    它们。这里只补最小桩：参数声明本身由 Relax 提供，桩不影响任何默认值。 真实依赖存在时不做任何替换。
     """
     global _IMPORT_GUARD_READY
     _ensure_router_stub()
