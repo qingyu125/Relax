@@ -7,11 +7,33 @@ from types import SimpleNamespace
 import pytest
 
 from relax.utils.training.inline_log_probs import can_reuse_colocate_log_probs
+from tests.support.args import build_relax_args
+
+
+# Megatron 声明、Relax 只读的字段：共享构造器不管这些，按需在这里覆盖。
+# 新增覆盖前先确认它确实由 Megatron 解析器声明，而不是 Relax 参数。
+_MEGATRON_FIELDS: dict[str, object] = {
+    "pipeline_model_parallel_size": 1,
+    "hidden_dropout": 0.0,
+    "attention_dropout": 0.0,
+    "moe_input_jitter_eps": None,
+    "bf16": True,
+    "fp16": False,
+    "fp8": None,
+    "fp4": None,
+    "fp8_param_gather": False,
+    "moe_router_enable_expert_bias": False,
+    "moe_aux_loss_coeff": 0.0,
+    "moe_router_load_balancing_type": ["none"],
+    "moe_router_force_load_balancing": False,
+    "moe_router_force_biased": None,
+    "moe_expert_capacity_factor": None,
+}
 
 
 @pytest.fixture
 def actor():
-    args = SimpleNamespace(
+    args = build_relax_args(
         colocate=True,
         true_on_policy_mode=True,
         fully_async=False,
@@ -28,22 +50,7 @@ def actor():
         partial_rollout=False,
         use_dynamic_global_batch_size=False,
         context_parallel_size=1,
-        pipeline_model_parallel_size=1,
         dynamic_context_parallel=False,
-        hidden_dropout=0.0,
-        attention_dropout=0.0,
-        moe_input_jitter_eps=None,
-        bf16=True,
-        fp16=False,
-        fp8=None,
-        fp4=None,
-        fp8_param_gather=False,
-        moe_router_enable_expert_bias=False,
-        moe_aux_loss_coeff=0.0,
-        moe_router_load_balancing_type=["none"],
-        moe_router_force_load_balancing=False,
-        moe_router_force_biased=None,
-        moe_expert_capacity_factor=None,
         kl_coef=0.0,
         use_kl_loss=False,
         use_opd=False,
@@ -66,6 +73,8 @@ def actor():
         custom_megatron_before_log_prob_hook_path=None,
         custom_megatron_before_train_step_hook_path=None,
     )
+    for name, value in _MEGATRON_FIELDS.items():
+        setattr(args, name, value)
     return SimpleNamespace(
         args=args, weights_backuper=SimpleNamespace(backup_tags=["actor"]), rollout_data_postprocess=None
     )

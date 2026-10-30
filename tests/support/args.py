@@ -18,25 +18,11 @@ import sys
 from types import ModuleType, SimpleNamespace
 from typing import Any
 
+from tests.support.megatron_defaults import MEGATRON_TEST_DEFAULTS
+
 
 _IMPORT_GUARD_READY = False
 _BASE_ARGS: dict[str, Any] | None = None
-
-# Megatron 拥有的字段（非 Relax 声明），但 Relax 业务代码会读。单元测试没有安装
-# Megatron 时无法从上游取默认值，这里镜像上游默认值，仅用于构造测试参数对象；
-# 真实镜像校验见 tests/backends/megatron/test_args_compat.py（装 megatron 时才跑）。
-MEGATRON_TEST_DEFAULTS: dict[str, Any] = {
-    "context_parallel_size": 1,
-    "dynamic_context_parallel": False,
-    "seq_length": None,
-    # profiler 相关字段由 Megatron 解析器提供（见 arguments.py 中
-    # "--record-memory-history ... defined in Megatron" 的注释）。
-    "use_pytorch_profiler": False,
-    "record_memory_history": False,
-    "profile_ranks": None,
-    "profile_step_start": 10,
-    "profile_step_end": 12,
-}
 
 
 def _ensure_router_stub() -> None:
@@ -156,7 +142,7 @@ def build_relax_args(**overrides: Any) -> argparse.Namespace:
     unknown = sorted(name for name in set(overrides) - known if not name.startswith(("sglang_", "router_")))
     if unknown:
         raise AttributeError(f"unknown Relax argument(s) {unknown}; declared names come from relax/utils/arguments.py")
-    args = argparse.Namespace(**{**MEGATRON_TEST_DEFAULTS, **base})
+    args = argparse.Namespace(**{**copy.deepcopy(MEGATRON_TEST_DEFAULTS), **base})
     for name, value in overrides.items():
         setattr(args, name, value)
     return args
