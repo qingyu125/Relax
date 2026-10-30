@@ -21,6 +21,19 @@ from relax.backends.megatron import checkpoint_metadata, compat
 from relax.engine.sft.runtime import is_rm_mode
 from relax.utils.logging_utils import get_logger
 from relax.utils.model_source import is_model_source_alias
+from tests.support.args import build_relax_args
+
+
+_KNOWN = frozenset(vars(build_relax_args()))
+
+
+def _args(**kw):
+    """完整参数对象；非 Relax 声明的字段显式透传。"""
+    extra = {k: kw.pop(k) for k in list(kw) if k not in _KNOWN}
+    args = build_relax_args(**kw)
+    for name, value in extra.items():
+        setattr(args, name, value)
+    return args
 
 
 def _load_checkpoint_module():
@@ -144,7 +157,7 @@ def _stub_loaders(monkeypatch, args):
 
 def test_checkpoint_missing_iteration_falls_back_to_hf(monkeypatch, tmp_path):
     (tmp_path / "latest_checkpointed_iteration.txt").write_text("7")
-    calls = _stub_loaders(monkeypatch, Namespace(load=str(tmp_path)))
+    calls = _stub_loaders(monkeypatch, _args(load=str(tmp_path)))
     assert checkpoint.load_checkpoint(None, None, None, {}, False) == (0, 0)
     assert calls == [("hf", None)]
 
@@ -155,7 +168,7 @@ def test_checkpoint_missing_iteration_falls_back_to_hf(monkeypatch, tmp_path):
 def test_checkpoint_model_only_sets_optimizer_policy(monkeypatch, tmp_path, no_load_optim, finetune, expected):
     (tmp_path / "latest_checkpointed_iteration.txt").write_text("7")
     save({"model": torch.zeros(2)}, checkpoint_id=tmp_path / "iter_0000007")
-    args = Namespace(load=str(tmp_path), ckpt_format="torch_dist", no_load_optim=no_load_optim, finetune=finetune)
+    args = _args(load=str(tmp_path), ckpt_format="torch_dist", no_load_optim=no_load_optim, finetune=finetune)
     calls = _stub_loaders(monkeypatch, args)
     checkpoint.load_checkpoint(None, object(), None, {}, False)
     assert calls == [("dcp",)]
@@ -165,7 +178,7 @@ def test_checkpoint_model_only_sets_optimizer_policy(monkeypatch, tmp_path, no_l
 @pytest.mark.parametrize("missing", ["iteration", "optimizer"])
 def test_reward_model_resume_rejects_incomplete_checkpoint(monkeypatch, tmp_path, missing):
     (tmp_path / "latest_checkpointed_iteration.txt").write_text("7")
-    args = Namespace(load=str(tmp_path), loss_type="rm", ckpt_format="torch_dist")
+    args = _args(load=str(tmp_path), loss_type="rm", ckpt_format="torch_dist")
     if missing == "optimizer":
         save({"model": torch.zeros(2)}, checkpoint_id=tmp_path / "iter_0000007")
     calls = _stub_loaders(monkeypatch, args)
