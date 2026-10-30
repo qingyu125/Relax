@@ -25,6 +25,7 @@ from relax.utils.tq.config import (
     validate_mooncake_runtime_contract,
     validate_segment_capacity,
 )
+from tests.support.args import build_relax_args
 
 
 _MASTER = "master.example:50051"
@@ -42,7 +43,7 @@ def _args(**overrides: Any) -> argparse.Namespace:
         "seq_length": 8192,
     }
     values.update(overrides)
-    return argparse.Namespace(**values)
+    return build_relax_args(**values)
 
 
 @pytest.mark.parametrize(
@@ -61,8 +62,9 @@ def test_validate_config_matrix(overrides: dict[str, Any], expected_error: str |
         assert repr(next(iter(overrides.values()))) not in errors[0]
 
 
-def test_missing_config_attributes_default_to_off() -> None:
-    assert validate_config(argparse.Namespace()) == []
+def test_declared_defaults_validate_clean() -> None:
+    """参数对象始终完整（finalize 保证），默认值下不应产生校验错误。"""
+    assert validate_config(build_relax_args()) == []
 
 
 @pytest.mark.parametrize(

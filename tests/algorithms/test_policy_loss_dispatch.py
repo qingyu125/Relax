@@ -7,9 +7,10 @@ import ast
 import dataclasses
 import math
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
+
+from tests.support.args import build_relax_args
 
 
 torch = pytest.importorskip("torch")
@@ -28,16 +29,18 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _args(estimator, **overrides):
-    base = dict(
-        advantage_estimator=estimator,
-        eps_clip=0.15,
-        eps_clip_high=0.3,
-        m2po_kl2_budget=0.02,
-        m2po_miniclip_low=0.25,
-        m2po_miniclip_high=0.4,
+    # 只声明本文件关心的差异；其余字段取自参数定义（tests/support/args.py）。
+    return build_relax_args(
+        **{
+            "advantage_estimator": estimator,
+            "eps_clip": 0.15,
+            "eps_clip_high": 0.3,
+            "m2po_kl2_budget": 0.02,
+            "m2po_miniclip_low": 0.25,
+            "m2po_miniclip_high": 0.4,
+            **overrides,
+        }
     )
-    base.update(overrides)
-    return SimpleNamespace(**base)
 
 
 def _tensors():

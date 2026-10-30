@@ -4,7 +4,6 @@
 
 import importlib.util
 import sys
-from argparse import Namespace
 from dataclasses import replace
 from pathlib import Path
 from types import ModuleType
@@ -12,6 +11,7 @@ from types import ModuleType
 import pytest
 
 from relax.algorithms import ALGORITHM_SPECS
+from tests.support.args import build_relax_args
 
 
 @pytest.fixture()
@@ -45,7 +45,8 @@ def load_registry(monkeypatch):
 
 
 def _args_for(name, **overrides):
-    return Namespace(
+    # 只声明本文件关心的差异；其余字段取自参数定义（tests/support/args.py）。
+    return build_relax_args(
         **{
             "advantage_estimator": name,
             "multimodal_keys": None,
