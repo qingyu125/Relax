@@ -13,6 +13,7 @@ from relax.utils.metrics.client import MetricsClient
 from relax.utils.metrics.metrics_service_adapter import MetricsServiceAdapter
 from relax.utils.metrics.service import MetricsBuffer
 from relax.utils.misc import create_namespace
+from tests.support.args import build_relax_args
 
 
 class TestMetricsBuffer(unittest.TestCase):
@@ -130,10 +131,8 @@ class TestMetricsServiceAdapter(unittest.TestCase):
     """Test MetricsServiceAdapter for backward compatibility."""
 
     def setUp(self):
-        args_dict = {
-            "use_metrics_service": True,
-        }
-        self.args = create_namespace(args_dict)
+        # 参数对象必须完整：适配器会直接读取 timeline_dump_dir 等字段。
+        self.args = build_relax_args(use_metrics_service=True)
 
         # Mock the client to avoid actual HTTP calls
         self.mock_client = Mock(spec=MetricsClient)
