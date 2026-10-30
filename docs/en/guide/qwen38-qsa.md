@@ -6,16 +6,47 @@ The adapter supports CUDA BF16, TP2 local 12Q/1KV heads with D256, CP1, and a fr
 
 ## Runtime requirements
 
-Use a compatible CUDA 13 Blackwell training environment, including Megatron/Bridge, HybridEP and Flash Attention. The optional dependency is [NVIDIA cuDNN Frontend PR1765](https://github.com/NVIDIA/cudnn-frontend/pull/1765), pinned to commit **627c23f62e860fe2f76d6b38d2efcc2ee84c70cd**, with CuTeDSL **4.8.1**. Install it in the training image or an isolated environment available at the same location on every node:
+Use a compatible CUDA 13 Blackwell training environment, including Megatron/Bridge, HybridEP and Flash Attention. The optional dependency is [NVIDIA cuDNN Frontend PR1765](https://github.com/NVIDIA/cudnn-frontend/pull/1765), pinned to commit **627c23f62e860fe2f76d6b38d2efcc2ee84c70cd**, with CuTeDSL **4.8.1**.
 
-~~~bash
-python -m pip install 'nvidia-cutlass-dsl[cu13]==4.8.1' \
-  'git+https://github.com/NVIDIA/cudnn-frontend.git@627c23f62e860fe2f76d6b38d2efcc2ee84c70cd'
+The repository's CUDA 13 Blackwell image pins CuTeDSL to 4.6.2 through PIP_CONSTRAINT. A direct installation of 4.8.1 conflicts with that constraint, and creating a venv alone does not remove the inherited environment variable. Build a dedicated Qwen3.8 NV image instead of changing the running base environment. Save the following as Dockerfile.qsa:
 
-python -c 'from cudnn.QSA.api import qsa_forward, qsa_backward'
+~~~dockerfile
+# syntax=docker/dockerfile:1.7
+ARG RELAX_BASE_IMAGE
+FROM ${RELAX_BASE_IMAGE}
+
+RUN python - <<'PY'
+import os
+import re
+from pathlib import Path
+
+source = Path(os.environ["PIP_CONSTRAINT"])
+replaced = re.compile(
+    r"^\s*nvidia[-_.](?:cutlass[-_.]dsl|cudnn[-_.]frontend)\s*(?:[<=>!~@]|$)",
+    re.IGNORECASE,
+)
+lines = [line for line in source.read_text().splitlines() if not replaced.match(line)]
+lines.append("nvidia-cutlass-dsl==4.8.1")
+Path("/etc/relax-qsa-runtime-constraints.txt").write_text("\n".join(lines) + "\n")
+PY
+
+ENV PIP_CONSTRAINT=/etc/relax-qsa-runtime-constraints.txt
+RUN python -m pip install --no-cache-dir --upgrade \
+      'nvidia-cutlass-dsl[cu13]==4.8.1' \
+      'nvidia-cudnn-frontend @ git+https://github.com/NVIDIA/cudnn-frontend.git@627c23f62e860fe2f76d6b38d2efcc2ee84c70cd' && \
+    python -c 'import importlib.metadata as m; assert m.version("nvidia-cutlass-dsl") == "4.8.1"; from cudnn.QSA.api import qsa_forward, qsa_backward'
 ~~~
 
-Building the pinned frontend also requires its upstream build dependencies and a compatible cuDNN installation. Follow the [upstream installation instructions](https://github.com/NVIDIA/cudnn-frontend/tree/627c23f62e860fe2f76d6b38d2efcc2ee84c70cd) for your image. A different package that only exports a module named cudnn is insufficient. Relax does not install or replace the dependency automatically. Grouped remains the framework default and does not import this optional backend.
+This copies the base constraints and replaces only the CuTeDSL and frontend distribution pins: CuTeDSL has an explicit version, and the frontend has an explicit source commit in the installation command. All other constraints, including Torch, NumPy and Transformer Engine, remain in effect. Do not unset PIP_CONSTRAINT globally or edit the original constraints file.
+
+~~~bash
+docker build --build-arg RELAX_BASE_IMAGE='<your-cu13-blackwell-image>' \
+  -f Dockerfile.qsa -t relax-qsa:pr1765 .
+~~~
+
+Use the derived image on every Ray node, including the head. Building the pinned frontend also requires its upstream build dependencies and a compatible cuDNN installation; follow the [upstream installation instructions](https://github.com/NVIDIA/cudnn-frontend/tree/627c23f62e860fe2f76d6b38d2efcc2ee84c70cd). A different package that only exports a module named cudnn is insufficient. Relax does not install or replace the dependency automatically. Grouped remains the framework default and does not import this optional backend.
+
+The build and import checks cover dependency resolution, the selected CuTeDSL version and the QSA entry points. They do not establish GPU numerical correctness, TP/PP recomputation or compatibility of other kernels with the newer CuTeDSL. Validate those paths in the derived image before training; do not treat this Qwen3.8-specific variant as a validated replacement for every Blackwell recipe.
 
 ## Select the recipe
 

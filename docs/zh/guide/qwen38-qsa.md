@@ -6,16 +6,47 @@
 
 ## 运行环境
 
-使用兼容的 CUDA 13 Blackwell 训练环境，包含 Megatron/Bridge、HybridEP 和 Flash Attention。可选依赖为 [NVIDIA cuDNN Frontend PR1765](https://github.com/NVIDIA/cudnn-frontend/pull/1765)，固定到 commit **627c23f62e860fe2f76d6b38d2efcc2ee84c70cd**，CuTeDSL 使用 **4.8.1**。请将依赖安装到训练镜像，或所有节点相同路径下的隔离环境：
+使用兼容的 CUDA 13 Blackwell 训练环境，包含 Megatron/Bridge、HybridEP 和 Flash Attention。可选依赖为 [NVIDIA cuDNN Frontend PR1765](https://github.com/NVIDIA/cudnn-frontend/pull/1765)，固定到 commit **627c23f62e860fe2f76d6b38d2efcc2ee84c70cd**，CuTeDSL 使用 **4.8.1**。
 
-~~~bash
-python -m pip install 'nvidia-cutlass-dsl[cu13]==4.8.1' \
-  'git+https://github.com/NVIDIA/cudnn-frontend.git@627c23f62e860fe2f76d6b38d2efcc2ee84c70cd'
+仓库的 CUDA 13 Blackwell 镜像通过 PIP_CONSTRAINT 将 CuTeDSL 固定为 4.6.2，直接安装 4.8.1 会发生约束冲突。仅创建 venv 也不会清除继承的环境变量。应构建 Qwen3.8 NV 专用派生镜像，避免改动正在使用的基础环境。将下面内容保存为 Dockerfile.qsa：
 
-python -c 'from cudnn.QSA.api import qsa_forward, qsa_backward'
+~~~dockerfile
+# syntax=docker/dockerfile:1.7
+ARG RELAX_BASE_IMAGE
+FROM ${RELAX_BASE_IMAGE}
+
+RUN python - <<'PY'
+import os
+import re
+from pathlib import Path
+
+source = Path(os.environ["PIP_CONSTRAINT"])
+replaced = re.compile(
+    r"^\s*nvidia[-_.](?:cutlass[-_.]dsl|cudnn[-_.]frontend)\s*(?:[<=>!~@]|$)",
+    re.IGNORECASE,
+)
+lines = [line for line in source.read_text().splitlines() if not replaced.match(line)]
+lines.append("nvidia-cutlass-dsl==4.8.1")
+Path("/etc/relax-qsa-runtime-constraints.txt").write_text("\n".join(lines) + "\n")
+PY
+
+ENV PIP_CONSTRAINT=/etc/relax-qsa-runtime-constraints.txt
+RUN python -m pip install --no-cache-dir --upgrade \
+      'nvidia-cutlass-dsl[cu13]==4.8.1' \
+      'nvidia-cudnn-frontend @ git+https://github.com/NVIDIA/cudnn-frontend.git@627c23f62e860fe2f76d6b38d2efcc2ee84c70cd' && \
+    python -c 'import importlib.metadata as m; assert m.version("nvidia-cutlass-dsl") == "4.8.1"; from cudnn.QSA.api import qsa_forward, qsa_backward'
 ~~~
 
-从源码构建固定版本还需要上游构建依赖和兼容的 cuDNN 安装，具体准备方式见该版本的[上游安装说明](https://github.com/NVIDIA/cudnn-frontend/tree/627c23f62e860fe2f76d6b38d2efcc2ee84c70cd)。仅有名为 cudnn 的其他 Python 包并不足够。Relax 不会自动安装或替换依赖；框架默认仍使用 Grouped，也不会导入这个可选后端。
+这会复制基础约束，只替换 CuTeDSL 和 frontend 两个包的约束：CuTeDSL 固定版本，frontend 在安装命令中固定源码 commit。Torch、NumPy、Transformer Engine 等其余约束继续生效，不要全局取消 PIP_CONSTRAINT，也不要修改原始约束文件。
+
+~~~bash
+docker build --build-arg RELAX_BASE_IMAGE='<your-cu13-blackwell-image>' \
+  -f Dockerfile.qsa -t relax-qsa:pr1765 .
+~~~
+
+所有 Ray 节点（包括 head）都要使用派生镜像。从源码构建固定版本还需要上游构建依赖和兼容的 cuDNN 安装，具体准备方式见该版本的[上游安装说明](https://github.com/NVIDIA/cudnn-frontend/tree/627c23f62e860fe2f76d6b38d2efcc2ee84c70cd)。仅有名为 cudnn 的其他 Python 包并不足够。Relax 不会自动安装或替换依赖；框架默认仍使用 Grouped，也不会导入这个可选后端。
+
+构建和导入检查只覆盖依赖解析、CuTeDSL 版本及 QSA 入口，不代表已经验证 GPU 数值、TP/PP 重算，或其他 kernel 与新版 CuTeDSL 的兼容性。训练前须在派生镜像中验证相关路径；这份 Qwen3.8 专用环境不能直接视作所有 Blackwell 配方已验证的替代镜像。
 
 ## 选择训练入口
 
