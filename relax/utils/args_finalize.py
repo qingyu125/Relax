@@ -60,8 +60,13 @@ def _sglang_default_attributes() -> dict[str, Any]:
         logger.debug("sglang argument definitions unavailable, skip namespace completion: %s", exc)
         return {}
 
+    # 测试用替身可能只提供解析入口而不提供声明 API；没有声明就没有可补的默认值。
+    add_sglang_arguments = getattr(sglang_arguments, "add_sglang_arguments", None)
+    if add_sglang_arguments is None:
+        return {}
+
     parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
-    sglang_arguments.add_sglang_arguments(parser)
+    add_sglang_arguments(parser)
     return dict(vars(parser.parse_args([])))
 
 
