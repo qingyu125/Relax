@@ -21,16 +21,26 @@ from relax.backends.megatron import checkpoint_metadata, compat
 from relax.engine.sft.runtime import is_rm_mode
 from relax.utils.logging_utils import get_logger
 from relax.utils.model_source import is_model_source_alias
-from tests.support.args import build_relax_args
 
 
-_KNOWN = frozenset(vars(build_relax_args()))
+_KNOWN: frozenset | None = None
 
 
 def _args(**kw):
-    """完整参数对象；非 Relax 声明的字段显式透传。"""
+    """完整参数对象；非 Relax 声明的字段显式透传。
+
+    声明集合惰性构建：本模块会被 multiprocessing.spawn 的子进程重新导入，
+    顶层的重量级导入会拖慢 rendezvous，导致 init_process_group 超时。
+    """
+    global _KNOWN
+    if _KNOWN is None:
+        from tests.support.args import build_relax_args
+
+        _KNOWN = frozenset(vars(build_relax_args()))
     extra = {k: kw.pop(k) for k in list(kw) if k not in _KNOWN}
-    args = build_relax_args(**kw)
+    from tests.support.args import build_relax_args as _build
+
+    args = _build(**kw)
     for name, value in extra.items():
         setattr(args, name, value)
     return args
@@ -201,11 +211,15 @@ def test_checkpoint_lora_metadata_uses_explicit_step(monkeypatch, tmp_path):
     (tmp_path / "iter_0000009").mkdir()
     seen = []
     marker = {"format_version": 1}
-    args = Namespace(**{checkpoint._LORA_CHECKPOINT_METADATA_ATTR: marker})
-    monkeypatch.setattr(dist_checkpointing, "load_common_state_dict", lambda path: seen.append(path) or {"args": args})
+    # 保存的 checkpoint metadata 可以保持稀疏（只含被测字段），
+    # 但运行期参数对象必须完整：_load_checkpoint_metadata 会直接读 loss_type。
+    saved_args = Namespace(**{checkpoint._LORA_CHECKPOINT_METADATA_ATTR: marker})
+    monkeypatch.setattr(
+        dist_checkpointing, "load_common_state_dict", lambda path: seen.append(path) or {"args": saved_args}
+    )
     monkeypatch.setattr(dist_checkpointing, "check_is_distributed_checkpoint", lambda path: True)
     directory = checkpoint._resolve_checkpoint_iteration_dir(tmp_path, ckpt_step=9)
-    common = checkpoint._load_checkpoint_metadata(args, [Namespace(role="actor")], directory)
+    common = checkpoint._load_checkpoint_metadata(_args(), [Namespace(role="actor")], directory)
     assert checkpoint._metadata_value(common["args"], checkpoint._LORA_CHECKPOINT_METADATA_ATTR) == marker
     assert seen == [tmp_path / "iter_0000009"]
 
@@ -219,7 +233,7 @@ def _probe_worker(rank, rendezvous, output):
     try:
         for mode in ("valid", "missing", "permission", "metadata", "tracker", "optimizer"):
             calls = []
-            checkpoint.get_args = lambda: Namespace(load="/shared/checkpoint")
+            checkpoint.get_args = lambda: _args(load="/shared/checkpoint")
             checkpoint._load_checkpoint_hf = lambda **kw: calls.append("hf")
             checkpoint._load_checkpoint_megatron = lambda **kw: calls.append("dcp")
             checkpoint._load_checkpoint_metadata = lambda *a, **kw: {}

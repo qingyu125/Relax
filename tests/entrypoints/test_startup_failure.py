@@ -19,6 +19,20 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 import yaml
 
+from tests.support.args import build_relax_args as _build_relax_args
+
+
+_KNOWN = frozenset(vars(_build_relax_args()))
+
+
+def _args(**kw):
+    """完整参数对象；非 Relax 声明的字段显式透传。"""
+    extra = {k: kw.pop(k) for k in list(kw) if k not in _KNOWN}
+    args = _build_relax_args(**kw)
+    for name, value in extra.items():
+        setattr(args, name, value)
+    return args
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
