@@ -62,9 +62,9 @@ def resolve_sft_split_indices(
 def is_sft_mode(args: Namespace | None) -> bool:
     """Return whether the normalized training objective is SFT.
 
-    ``args`` 允许为 ``None``：Controller 在部分启动失败后的清理路径上可能还没有
-    config 对象（``getattr(self, "config", None)``）。这是"整个对象不存在"，
-    与"字段缺失"不同，不参与默认值契约，统一按非 SFT 处理。
+    ``args`` 允许为 ``None``：Controller 在部分启动失败后的清理路径上可能还没有 config
+    对象（``getattr(self, "config", None)``）。这是"整个对象不存在"， 与"字段缺失"不同，不参与默认值契约，统一按非
+    SFT 处理。
     """
     return args is not None and args.loss_type == "sft"
 

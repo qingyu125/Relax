@@ -29,8 +29,8 @@ _KNOWN: frozenset | None = None
 def _args(**kw):
     """完整参数对象；非 Relax 声明的字段显式透传。
 
-    声明集合惰性构建：本模块会被 multiprocessing.spawn 的子进程重新导入，
-    顶层的重量级导入会拖慢 rendezvous，导致 init_process_group 超时。
+    声明集合惰性构建：本模块会被 multiprocessing.spawn 的子进程重新导入， 顶层的重量级导入会拖慢 rendezvous，导致
+    init_process_group 超时。
     """
     global _KNOWN
     if _KNOWN is None:
