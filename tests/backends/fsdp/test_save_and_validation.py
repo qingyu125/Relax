@@ -19,6 +19,7 @@ import torch
 
 from relax.backends.fsdp.actor import FSDPTrainRayActor
 from relax.backends.fsdp.arguments import validate_generative_config
+from tests.support.args import build_relax_args
 
 
 class _SaveSpy:
@@ -146,7 +147,7 @@ def test_empty_training_batch_does_not_advance_or_sync():
     from relax.utils.timer import Timer
 
     shell = object.__new__(FSDPTrainRayActor)
-    shell.args = SimpleNamespace()
+    shell.args = build_relax_args()
     shell.policy_version = 7
     shell._load_train_batches = lambda *_args: []
     shell._assert_microbatch_count_aligned = lambda *_args: None
@@ -280,7 +281,7 @@ def test_run_step_evaluation_does_not_wait_before_final_step(monkeypatch):
 
 
 def _valid_args(**over):
-    base = dict(
+    args = build_relax_args(
         train_backend="fsdp",
         generation_task="t2i",
         model_adapter_path="relax.models.qwen_image.adapter.QwenImageAdapter",
@@ -304,8 +305,9 @@ def _valid_args(**over):
         kl_coef=0.0,
         use_kl_loss=False,
     )
-    base.update(over)
-    return Namespace(**base)
+    for name, value in over.items():
+        setattr(args, name, value)
+    return args
 
 
 def test_validate_requires_eta_in_sampling_config():
