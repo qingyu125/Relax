@@ -57,6 +57,12 @@ def _sample() -> Sample:
 
 def _manager(**overrides) -> OpdManager:
     args = dict(
+        opd_student_eos_token_id=None,
+        opd_teacher_eos_token_id=None,
+        opd_teacher_response_prefix_token_ids=None,
+        opd_fkl_entropy_gate=False,
+        opd_teacher_prompt_key=None,
+        opd_teacher_image_key=None,
         opd_token_selection="student_sampled",
         opd_log_prob_top_k=2,
         opd_kl_coef=1.0,

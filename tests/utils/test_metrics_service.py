@@ -12,7 +12,6 @@ import requests
 from relax.utils.metrics.client import MetricsClient
 from relax.utils.metrics.metrics_service_adapter import MetricsServiceAdapter
 from relax.utils.metrics.service import MetricsBuffer
-from relax.utils.misc import create_namespace
 from tests.support.args import build_relax_args
 
 
@@ -204,13 +203,14 @@ class TestTrackingUtilsIntegration(unittest.TestCase):
     """Test integration with tracking_utils."""
 
     def setUp(self):
-        args_dict = {
-            "use_metrics_service": True,
-            "use_wandb": False,
-            "use_tensorboard": False,
-            "use_clearml": False,
-        }
-        self.args = create_namespace(args_dict)
+        # The adapter reads timeline_dump_dir and friends directly, so the
+        # tracking-utils tests need a fully populated parameter object.
+        self.args = build_relax_args(
+            use_metrics_service=True,
+            use_wandb=False,
+            use_tensorboard=False,
+            use_clearml=False,
+        )
 
     @patch("relax.utils.tracking_utils.get_metrics_service_adapter")
     def test_log_with_metrics_service(self, mock_get_adapter):

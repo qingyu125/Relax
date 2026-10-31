@@ -176,7 +176,7 @@ def test_zero_kl_uses_sampling_shape_without_sampling_values(monkeypatch):
     monkeypatch.setattr(loss, "maybe_padded_total_lengths", lambda *args: None)
     monkeypatch.setattr(loss, "compute_advantages_and_returns_impl", compute_impl)
     compute = loss.compute_advantages_and_returns
-    args = SimpleNamespace(
+    args = build_relax_args(
         advantage_estimator="grpo",
         kl_coef=0,
         use_rollout_logprobs=False,
@@ -184,6 +184,8 @@ def test_zero_kl_uses_sampling_shape_without_sampling_values(monkeypatch):
         use_opd=False,
         normalize_advantages=False,
     )
+    for name, value in _MEGATRON_FIELDS.items():
+        setattr(args, name, value)
     for value in (-0.1, -100):
         data = {
             "rollout_log_probs": [torch.full((3,), value, dtype=torch.float16), torch.full((2,), value)],
