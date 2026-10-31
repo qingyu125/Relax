@@ -7,6 +7,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from tests.support.args import build_relax_args
+
 
 @pytest.fixture(autouse=True)
 def _cleanup_teacher_manager_module():
@@ -52,12 +54,13 @@ def _make_teacher_manager(monkeypatch, *, num_replicas=1, gpus_per_replica=16, s
         original_init(self, *args, **kwargs)
 
     monkeypatch.setattr(teacher_manager_module.MultiEngineManager, "__init__", skip_engine_init)
-    args = SimpleNamespace(
+    args = build_relax_args(
         num_gpus_per_node=8,
         rollout_num_gpus=80,
         teacher_hf_checkpoint="/tmp/teacher",
-        teacher_sglang_dp_size=8,
     )
+    args.teacher_sglang_dp_size = 8
+    args.enable_affinity = False
     pg = ("shared-pg", list(range(160)), [i % 8 for i in range(160)]) if shared_pg else None
     manager_cls = teacher_manager_module.TeacherManager.__ray_metadata__.modified_class
     manager = manager_cls(

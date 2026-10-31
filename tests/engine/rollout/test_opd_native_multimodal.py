@@ -20,6 +20,7 @@ from relax.utils.opd.opd_multimodal import (
 )
 from relax.utils.opd.opd_opsd_worker import OpsdWorker
 from relax.utils.types import Sample
+from tests.support.args import build_relax_args
 
 
 @pytest.fixture
@@ -354,7 +355,7 @@ def test_image_contract_rejects_expanded_payload_missing_prompt_ids_and_unsuppor
 @pytest.fixture
 def native_generate(monkeypatch):
     sglang_rollout = pytest.importorskip("relax.engine.rollout.sglang_rollout", exc_type=ModuleNotFoundError)
-    args = SimpleNamespace(
+    args = build_relax_args(
         ci_test=False,
         sglang_router_ip="unused",
         sglang_router_port=1,
@@ -363,6 +364,8 @@ def native_generate(monkeypatch):
         sglang_router_policy="round_robin",
         sglang_speculative_algorithm=None,
     )
+    args.num_layers = 2
+    args.moe_router_topk = 2
     state = SimpleNamespace(
         tokenizer=SimpleNamespace(
             image_token_id=99,
