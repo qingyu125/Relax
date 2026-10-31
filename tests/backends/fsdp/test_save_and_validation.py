@@ -416,8 +416,12 @@ def test_validate_accepts_tp_dividing_actor_world():
 
 
 def test_validate_accepts_tp_when_actor_world_unknown():
-    # Without actor world info the divisibility check is deferred to the first sync.
-    validate_generative_config(_valid_args(rollout_num_gpus_per_engine=4))
+    # Without actor world info the divisibility check is deferred to the first
+    # sync; clear the topology fields explicitly because the shared builder
+    # fills them with declared values that would take the known-size branch.
+    validate_generative_config(
+        _valid_args(rollout_num_gpus_per_engine=4, actor_num_gpus_per_node=None, actor_num_nodes=None)
+    )
 
 
 def test_validate_rejects_tp_not_dividing_actor_world():
