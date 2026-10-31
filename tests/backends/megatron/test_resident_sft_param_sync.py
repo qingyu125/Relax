@@ -38,7 +38,8 @@ def _functions(path, names, namespace, *, class_method=False):
     return namespace
 
 
-# Megatron 声明、Relax 只读的字段（含进程内验证标记）：构造器不管这些，单独覆盖。
+# Fields declared by Megatron and read-only for Relax (including the in-process
+# verification marker): the builder does not manage these; override separately.
 _NON_DECLARED_FIELDS = {
     "use_distributed_optimizer": True,
     "overlap_grad_reduce": True,

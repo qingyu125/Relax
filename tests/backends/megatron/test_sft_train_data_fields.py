@@ -12,7 +12,7 @@ from tests.support.args import build_relax_args
 
 
 def _mk_actor_args(loss_type: str):
-    # 只声明与本用例相关的差异，其余字段取自参数定义。
+    # Declare only the diff this case cares about; the other fields come from the declarations.
     return build_relax_args(
         loss_type=loss_type,
         compute_advantages_and_returns=(loss_type not in {"sft", "dpo", "rm"}),

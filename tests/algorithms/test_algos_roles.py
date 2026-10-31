@@ -45,7 +45,7 @@ def load_registry(monkeypatch):
 
 
 def _args_for(name, **overrides):
-    # 只声明本文件关心的差异；其余字段取自参数定义（tests/support/args.py）。
+    # Declare only the diff this file cares about; the other fields come from the parameter declarations (tests/support/args.py).
     return build_relax_args(
         **{
             "advantage_estimator": name,

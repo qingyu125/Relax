@@ -33,8 +33,9 @@ def monkey_patch_torch_dist(args=None):
     old_new_group = dist.new_group
     old_new_group_dict[pid] = old_new_group
     dist.old_new_group = old_new_group
-    # ``args`` 可以整参省略（见函数签名 args=None）：那种情况保持"启用补丁"的既有语义，
-    # 与"参数对象存在但字段缺失"区分开，后者不再兜底。
+    # ``args`` may be omitted entirely (see the args=None signature): keep the
+    # existing "enable the patch" semantics for that case, distinct from "the
+    # object exists but a field is missing", which is no longer default-filled.
     use_reloadable_groups = args.offload_train if args is not None else True
 
     def new_group(*args, **kwargs):

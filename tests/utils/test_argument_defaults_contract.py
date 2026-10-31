@@ -1,11 +1,15 @@
 # Copyright (c) 2026 Relax Authors. All Rights Reserved.
 
-"""参数默认值契约：声明、收尾阶段与测试构造器必须保持同构。
+"""Parameter default contract: declarations, finalization and the test builder
+must stay isomorphic.
 
-覆盖任务 No.13 的验收点：
-- 默认值只有一处来源（参数定义 + finalize 阶段），测试构造器不再自带默认值表。
-- finalize 幂等，且只补缺失字段，不覆盖已有取值。
-- 显式 ``None`` / ``False`` / ``0`` / 空列表语义在构造与收尾过程中保持原样。
+Covers the acceptance points of task No.13:
+- Defaults have a single source (parameter declarations + the finalize stage);
+  the test builder no longer carries its own default table.
+- finalize is idempotent, filling only missing fields and never overwriting
+  existing values.
+- Explicit ``None`` / ``False`` / ``0`` / empty-list semantics survive building
+  and finalization unchanged.
 """
 
 import argparse
@@ -87,7 +91,8 @@ def test_finalize_does_not_overwrite_runtime_values():
 
 
 def test_finalize_fills_missing_optional_subparser_fields(monkeypatch):
-    """无论走哪条解析路径，下游读到的字段集合都应一致。"""
+    """Whatever parsing path runs, downstream readers see the same set of
+    fields."""
     from relax.utils import args_finalize
 
     monkeypatch.setattr(
@@ -112,7 +117,8 @@ def test_finalize_keeps_explicit_subparser_values(monkeypatch):
 
 
 def test_pre_parse_fields_are_part_of_the_builder():
-    """pre-parse 阶段声明的字段也属于"解析后的完整参数对象"。"""
+    """Fields declared at the pre-parse stage also belong to the fully parsed
+    parameter object."""
     args = build_relax_args(debug_rollout_only=True)
     assert args.debug_rollout_only is True
     assert args.debug_train_only is False

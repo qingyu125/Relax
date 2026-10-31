@@ -10,8 +10,9 @@ arguments_module = _arguments_module_fixture
 
 
 def test_cpt_accepts_the_sft_causal_lm_backend(arguments_module):
-    # --tool-key 的声明默认值是 "tools"，与 CPT 模板互斥；这是既有语义（不在本任务范围），
-    # 用例显式声明该差异而不是依赖字段缺失。
+    # The declared default of --tool-key is "tools", mutually exclusive with the
+    # CPT template; this is existing semantics (out of scope for this task), and
+    # the case declares the diff explicitly instead of relying on a missing field.
     arguments_module._validate_cpt_args(
         build_relax_args(sft_training_mode="cpt", loss_type="sft", task_type="causal_lm", tool_key=None)
     )

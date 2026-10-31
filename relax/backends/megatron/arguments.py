@@ -98,7 +98,8 @@ def validate_args(args):
     """Run megatron's own validate_args plus slime-specific megatron
     validations."""
 
-    # 兼容直接从上游 parser 拿到、未经过 megatron_parse_args 的参数对象。
+    # Compatibility for parameter objects taken straight from the upstream
+    # parser without going through megatron_parse_args.
     fill_missing_boolean_fields(args)
 
     if args.dynamic_context_parallel:
@@ -177,8 +178,9 @@ def _is_moe_config(hf_config):
     )
 
 
-# HF config 与 Megatron 参数的一致性对照表。仅在 Megatron 以规范名暴露 epsilon 的版本上
-# 启用（见 _hf_validate_args 的说明），因此这里保持"逐项严格相等"的语义。
+# Consistency table between the HF config and Megatron parameters. Only active
+# on Megatron versions that expose epsilon under the canonical name (see the
+# _hf_validate_args notes), so the "strict per-field equality" semantics are kept here.
 _HF_FIELD_CHECKS = [
     ("hidden_size", "hidden_size", lambda x, y: x == y),
     ("num_attention_heads", "num_attention_heads", lambda x, y: x == y),
@@ -218,16 +220,22 @@ def _hf_validate_args(args, hf_config):
         hf_config = hf_config.text_config
 
     validate_dense_ffn = not _is_moe_config(hf_config) or _has_dense_moe_layers(args)
-    # Megatron 不同版本把 RMSNorm epsilon 暴露为 norm_epsilon 或 layernorm_epsilon，
-    # 改名关系与判定条件集中在 args_compat.FIELD_ALIASES。
+    # Megatron versions expose RMSNorm epsilon either as norm_epsilon or as
+    # layernorm_epsilon; the rename mapping and its predicate are concentrated
+    # in args_compat.FIELD_ALIASES.
     norm_epsilon_field, _ = resolve_aliased_field(args, "norm_epsilon")
 
-    # 比较范围与提取前保持一致：原代码把整张模型对照表和 epsilon 改名判断写在同一个条件
-    # 表达式里，由于表达式优先级，只有暴露 norm_epsilon 的版本才会比较整张表，旧名版本
-    # （含固定镜像 MCore 4a4de865）实际只比较 epsilon。
-    # 本函数运行在 Megatron 默认值派生与 Bridge provider 之前：未显式给出的字段仍是
-    # None（例如省略 --ffn-hidden-size 时的 ffn_hidden_size），--num-layers 还允许减层
-    # 训练覆盖，无条件比较会拒绝原本合法的启动配置。扩大比较范围需先解决派生时序，另行跟进。
+    # The comparison scope matches the pre-refactor behaviour: the original code
+    # wrote the whole model comparison table and the epsilon rename decision in a
+    # single conditional expression, and due to operator precedence only versions
+    # exposing norm_epsilon compared the whole table — old-name versions
+    # (including the pinned MCore 4a4de865 mirror) actually only compared epsilon.
+    # This function runs before Megatron's default derivation and the Bridge
+    # provider: fields not given explicitly are still None (e.g. ffn_hidden_size
+    # when --ffn-hidden-size is omitted), and --num-layers still allows the
+    # layer-reduced training override, so an unconditional comparison would reject
+    # launch configurations that are otherwise legal. Widening the comparison
+    # scope requires solving the derivation ordering first; tracked separately.
     epsilon_checks = [("rms_norm_eps", norm_epsilon_field, equal)]
     field_checks = _HF_FIELD_CHECKS + epsilon_checks if uses_canonical_norm_epsilon(args) else epsilon_checks
 
@@ -340,8 +348,9 @@ def megatron_parse_args(
 ):
     """Parse megatron args, validate HF config, and set defaults."""
     args = _megatron_parse_args(extra_args_provider=extra_args_provider, ignore_unknown_args=True)
-    # 上游某些分支（NPU 侧 Megatron）没有声明 Relax 会读取的布尔开关，
-    # 在校验与任何直读之前统一补齐，避免 AttributeError。
+    # Some upstream branches (NPU-side Megatron) do not declare the boolean
+    # switches Relax reads; fill them uniformly before validation and any
+    # direct read to avoid AttributeError.
     fill_missing_boolean_fields(args)
 
     if model_source is not None:

@@ -26,7 +26,7 @@ def arguments_module(monkeypatch):
     sglang_arguments = ModuleType("relax.backends.sglang.arguments")
     sglang_arguments.sglang_parse_args = lambda: None
     sglang_arguments.validate_args = lambda args: args
-    # 参数收尾阶段会读子解析器的声明来补字段（finalize_args），替身也要提供该入口。
+    # The finalization stage reads the sub-parser's declarations to fill fields (finalize_args), so the test double must provide that entry point too.
     sglang_arguments.add_sglang_arguments = lambda parser: parser
     monkeypatch.setitem(sys.modules, "relax.backends.sglang.arguments", sglang_arguments)
 
@@ -170,8 +170,10 @@ def test_provider_source_is_attached_before_same_uri_ref_validation(monkeypatch,
 
     logical_uri = "somesource://models/policy"
     source = m.ModelSource("s3://bucket/models/policy/", provider_name="test")
-    # 解析阶段的参数对象必须完整：pre 复用 pre-parse 声明，parsed 复用完整构造器，
-    # 只声明本用例关心的差异。稀疏对象会让 _parse_args_impl 里的直接读取先失败。
+    # Parse-stage parameter objects must be complete: pre reuses the pre-parse
+    # declarations and parsed reuses the full builder, declaring only the diff
+    # this case cares about. Sparse objects would fail the direct reads in
+    # _parse_args_impl first.
     parsed = build_relax_args(
         hf_checkpoint=logical_uri,
         ref_load=logical_uri,

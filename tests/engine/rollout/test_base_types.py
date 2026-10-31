@@ -86,7 +86,7 @@ class TestCallRolloutFnFilter:
     def test_filter_skipped_when_attr_missing(self):
         """``getattr(..., None)`` must swallow the missing attribute."""
         groups = _build_groups(2)
-        # 缺失字段不再是合法状态：rollout_sample_filter_path 取声明默认值 None。
+        # A missing field is no longer a legal state: rollout_sample_filter_path keeps its declared default None.
         args = build_relax_args()
 
         def rollout_fn(a, evaluation):

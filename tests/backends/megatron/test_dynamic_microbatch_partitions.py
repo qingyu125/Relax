@@ -14,7 +14,8 @@ _KNOWN = frozenset(vars(build_relax_args()))
 
 
 def _args(**kw):
-    """完整参数对象；Megatron 拥有的字段显式透传。"""
+    """Fully populated parameter object; Megatron-owned fields are passed
+    through explicitly."""
     extra = {k: kw.pop(k) for k in list(kw) if k not in _KNOWN}
     args = build_relax_args(**kw)
     for name, value in extra.items():

@@ -1,9 +1,13 @@
 # Copyright (c) 2026 Relax Authors. All Rights Reserved.
 
-"""HF 参数校验（``_hf_validate_args``）的比较范围。
+"""Comparison scope of the HF parameter validation (``_hf_validate_args``).
 
-这个函数运行在 Megatron 默认值派生与 Bridge provider 之前：未显式给出的字段仍是 ``None``，``--num-layers``
-还允许减层训练覆盖。因此校验只应比较"此时已经有意义"的 字段，否则会拒绝原本合法的启动配置。本文件锁定该范围，避免后续重构悄悄扩大比较面。
+The function runs before Megatron's default derivation and the Bridge
+provider: fields not given explicitly are still ``None``, and ``--num-layers``
+still allows the layer-reduced override. Validation must therefore only
+compare fields that "already have a meaning at this point", otherwise it
+would reject launch configurations that are otherwise legal. This file pins
+that scope so later refactors cannot quietly widen it.
 """
 
 from argparse import Namespace
@@ -28,12 +32,12 @@ HF_CONFIG = Namespace(
 
 
 def _legacy_args(**overrides):
-    """固定镜像（MCore 4a4de865）的形态：只有 layernorm_epsilon。"""
+    """Shape of the pinned mirror (MCore 4a4de865): only layernorm_epsilon."""
     values = {
         "hidden_size": 2560,
         "num_attention_heads": 32,
-        "num_layers": 2,  # 减层训练覆盖
-        "ffn_hidden_size": None,  # 省略 --ffn-hidden-size，稍后由 Bridge 派生
+        "num_layers": 2,  # layer-reduced training override
+        "ffn_hidden_size": None,  # --ffn-hidden-size omitted, derived later by the Bridge
         "untie_embeddings_and_output_weights": False,
         "rotary_base": 10000,
         "layernorm_epsilon": 1e-6,
@@ -44,7 +48,7 @@ def _legacy_args(**overrides):
 
 
 def _canonical_args(**overrides):
-    """暴露 norm_epsilon 的 Megatron 版本。"""
+    """A Megatron version that exposes norm_epsilon."""
     values = {
         "hidden_size": 2560,
         "num_attention_heads": 32,
@@ -60,7 +64,8 @@ def _canonical_args(**overrides):
 
 
 def test_legacy_epsilon_name_only_compares_epsilon():
-    """未派生字段（ffn_hidden_size=None）与减层覆盖不应被判为不一致。"""
+    """Underived fields (ffn_hidden_size=None) and the layer override must not
+    be flagged as inconsistent."""
     megatron_arguments._hf_validate_args(_legacy_args(), HF_CONFIG)
 
 
@@ -70,7 +75,8 @@ def test_legacy_epsilon_mismatch_is_still_rejected():
 
 
 def test_canonical_epsilon_name_compares_the_model_table():
-    """暴露 norm_epsilon 的版本仍按原语义逐项比较。"""
+    """Versions exposing norm_epsilon still compare per-field with the original
+    semantics."""
     megatron_arguments._hf_validate_args(_canonical_args(), HF_CONFIG)
 
 
@@ -80,7 +86,8 @@ def test_canonical_epsilon_name_reports_mismatched_field():
 
 
 def test_missing_epsilon_field_is_an_explicit_error():
-    """两个名字都不存在说明 Megatron 版本不受支持，必须显式失败。"""
+    """Neither name exists, meaning the Megatron version is unsupported: it
+    must fail explicitly."""
     args = _legacy_args()
     del args.layernorm_epsilon
     with pytest.raises(AttributeError, match="neither 'norm_epsilon'"):

@@ -30,7 +30,7 @@ def test_sample_order_matches_eight_rank_reference(size):
     assert restored.batch(planner.steps_per_epoch + 1) == planner.batch(planner.steps_per_epoch + 1)
 
 
-# Megatron 声明、Relax 只读的字段：构造器不管这些，按需显式覆盖。
+# Fields declared by Megatron and read-only for Relax: the builder does not manage these; override explicitly as needed.
 _MEGATRON_FIELDS = {"tensor_model_parallel_size": 1}
 
 

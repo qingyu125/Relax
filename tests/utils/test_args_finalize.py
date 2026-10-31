@@ -1,11 +1,15 @@
 # Copyright (c) 2026 Relax Authors. All Rights Reserved.
 
-"""参数收尾阶段（``args_finalize``）的单元测试。
+"""Unit tests for the argument finalization stage (``args_finalize``).
 
-收尾阶段是"声明 → 收尾 → 校验"三段里的中间一段，本文件只验证它的两条契约：
+The finalization stage is the middle segment of "declarations -> finalize ->
+validate". This file verifies its two contracts:
 
-1. 只补 **缺失** 的字段，任何已存在的值都不覆盖（幂等）；
-2. 子解析器不可用（可选依赖缺失，或测试替身未提供声明 API）时安全跳过，不阻断解析。
+1. Only **missing** fields are filled and existing values are never
+   overwritten (idempotent);
+2. When the sub-parser is unavailable (optional dependency missing, or the
+   test double lacks the declaration API), it skips safely without blocking
+   parsing.
 """
 
 import sys
@@ -16,10 +20,11 @@ from relax.utils import args_finalize
 
 
 def _install_sglang_stub(monkeypatch, **attributes):
-    """把 ``relax.backends.sglang.arguments`` 换成替身。
+    """Replace ``relax.backends.sglang.arguments`` with a test double.
 
-    同时覆盖 ``sys.modules`` 与包属性：``from package import name`` 会先查包属性， 只改
-    ``sys.modules`` 不保证生效。
+    Patch both ``sys.modules`` and the package attribute: ``from package import
+    name`` checks the package attribute first, so patching ``sys.modules``
+    alone is not guaranteed to take effect.
     """
     stub = ModuleType("relax.backends.sglang.arguments")
     for name, value in attributes.items():
@@ -36,7 +41,7 @@ def test_seed_runtime_derived_fills_missing_only():
     args = Namespace(is_vl_model=True)
     args_finalize.seed_runtime_derived(args)
 
-    assert args.is_vl_model is True, "已存在的值不得被覆盖"
+    assert args.is_vl_model is True, "existing values must not be overwritten"
     assert args.uses_unsplit_forward is False
     assert args.use_critic is False
     assert set(args_finalize.RUNTIME_DERIVED_DEFAULTS) <= set(vars(args))
@@ -61,16 +66,17 @@ def test_finalize_args_only_fills_missing_subparser_fields(monkeypatch):
 
     args_finalize.finalize_args(args)
 
-    assert args.sglang_dp_size == 8, "显式解析出来的值不得被声明默认值覆盖"
+    assert args.sglang_dp_size == 8, "explicitly parsed values must not be overwritten by declared defaults"
     assert args.sglang_pp_size == 2
 
 
 def test_finalize_args_skips_stub_without_declaration_api(monkeypatch):
-    """替身只提供解析入口时跳过补全，而不是抛 AttributeError。"""
+    """When the double only provides the parse entry, skip completion instead
+    of raising AttributeError."""
     _install_sglang_stub(monkeypatch, sglang_parse_args=lambda: None, validate_args=lambda args: args)
 
     args = Namespace()
     args_finalize.finalize_args(args)
 
-    # 只留下运行期派生属性，没有任何 sglang 字段。
+    # Keep only the runtime-derived attributes, without any sglang fields.
     assert set(vars(args)) == set(args_finalize.RUNTIME_DERIVED_DEFAULTS)

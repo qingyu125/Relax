@@ -15,7 +15,8 @@ _KNOWN = frozenset(vars(build_relax_args()))
 
 
 def _args(**kw):
-    """完整参数对象；非 Relax 声明的字段显式透传。"""
+    """Fully populated parameter object; fields not declared by Relax are
+    passed through explicitly."""
     extra = {k: kw.pop(k) for k in list(kw) if k not in _KNOWN}
     args = build_relax_args(**kw)
     for name, value in extra.items():
@@ -68,7 +69,8 @@ def _stub_policy_forward(monkeypatch, log_probs):
 
 
 def _m2po_args(*, calculate_per_token_loss):
-    """M2PO 用例的完整参数对象：在声明之上只写本算法关心的差异。"""
+    """Fully populated parameter object for the M2PO cases: only the diff this
+    algorithm cares about, on top of the declarations."""
     return _args(
         loss_type="policy_loss",
         advantage_estimator="m2po",

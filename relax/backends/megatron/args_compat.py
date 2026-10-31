@@ -1,29 +1,33 @@
 # Copyright (c) 2026 Relax Authors. All Rights Reserved.
 
-"""Megatron 参数兼容逻辑的唯一入口。
+"""Single entry point for Megatron parameter compatibility logic.
 
-本模块只处理**上游 Megatron 字段**带来的差异，共三类：
+This module only handles differences caused by **upstream Megatron fields**, in
+three categories:
 
-1. **字段改名**：同一语义在 Megatron 不同版本使用不同参数名，例如
-   ``norm_epsilon``（新）与 ``layernorm_epsilon``（旧）。
-2. **字段缺失**：旧版本 Megatron 没有该参数，Relax 需要按版本能力决定是否使用，
-   例如 ``dynamic_context_parallel``（要求 ``mpu.initialize_model_parallel``
-   接受同名形参）。
-3. **取值回退**：字段存在但缺省值需要按 Relax 语义推导，例如 ``rope_type``、
-   FP16 optimizer 相关选项。
+1. **Renamed fields**: the same concept uses different parameter names across
+   Megatron versions, e.g. ``norm_epsilon`` (new) vs ``layernorm_epsilon`` (old).
+2. **Missing fields**: older Megatron versions lack the parameter, and Relax
+   must decide whether to use it based on version capability, e.g.
+   ``dynamic_context_parallel`` (requires ``mpu.initialize_model_parallel`` to
+   accept a parameter of the same name).
+3. **Value fallbacks**: the field exists but its default must be derived from
+   Relax semantics, e.g. ``rope_type`` and the FP16 optimizer options.
 
-不适用范围（重要）：
+Out of scope (important):
 
-- **Relax 自有参数**（在 ``relax/utils/arguments.py``、
-  ``relax/backends/{megatron,fsdp,sglang}/arguments.py`` 中声明）永远直接读取
-  ``args.xxx``，不得经由本模块补默认值，也不得为了"稳妥"在这里再写一份默认值。
-  该边界由 ``tests/utils/test_no_getattr_defaults.py`` 静态守卫。
-- HF 模型 config 字段探测（``text_config``、``thinker_config`` 等）属于模型结构问题，
-  与命令行参数兼容无关。
-- 运行时补丁（optimizer monkey patch 等）见 ``relax/backends/megatron/compat.py``。
+- **Relax-owned parameters** (declared in ``relax/utils/arguments.py`` and
+  ``relax/backends/{megatron,fsdp,sglang}/arguments.py``) are always read
+  directly via ``args.xxx``; they must never be default-filled through this
+  module, and no duplicate default table may be written here "just in case".
+- Probing HF model config fields (``text_config``, ``thinker_config``, etc.) is
+  a model-structure concern, unrelated to CLI argument compatibility.
+- Runtime patches (optimizer monkey patches, etc.) live in
+  ``relax/backends/megatron/compat.py``.
 
-新增条目时必须同时补齐三件事：适用条件、差异来源（Megatron 版本/字段名）、
-对应测试。不要在本模块之外再新增 Megatron 版本判断。
+Every new entry must come with three things: its applicability condition, the
+source of the difference (Megatron version / field name), and a matching test.
+Do not add Megatron version checks outside this module.
 """
 
 import inspect
@@ -32,16 +36,17 @@ from functools import lru_cache
 from typing import Any
 
 
-# 字段改名表：Relax 代码使用的规范名 -> (上游旧名, 差异来源说明)
+# Field rename table: canonical name used by Relax code -> (upstream old name, source note)
 FIELD_ALIASES: dict[str, tuple[str, str]] = {
     "norm_epsilon": (
         "layernorm_epsilon",
-        "Megatron-Core 将 layernorm_epsilon 更名为 norm_epsilon；旧版镜像仍只有旧名。",
+        "Megatron-Core renamed layernorm_epsilon to norm_epsilon; older mirrors only carry the old name.",
     ),
 }
 
-# FP16 optimizer 在旧版 Megatron 中随 --fp16 隐式启用，新版改为独立开关。
-# 这里记录旧版行为，用于字段为 None（未显式配置）时的回退。
+# In older Megatron versions the precision-aware optimizer was enabled implicitly
+# by --fp16; newer versions use a dedicated switch. The old behaviour is recorded
+# here as the fallback for fields left None (not explicitly configured).
 FP16_OPTIMIZER_FALLBACKS: dict[str, Any] = {
     "initial_loss_scale": 32768.0,
     "min_loss_scale": 1.0,
@@ -49,34 +54,40 @@ FP16_OPTIMIZER_FALLBACKS: dict[str, Any] = {
     "store_param_remainders": False,
 }
 
-# 仅这两项的取值参与 loss scale 合法性校验（见 validate_fp16_optimizer_args）。
+# Only these two values participate in loss-scale validity checks
+# (see validate_fp16_optimizer_args).
 DYNAMIC_LOSS_SCALE_FIELDS: tuple[str, ...] = ("initial_loss_scale", "min_loss_scale")
 
-# 布尔开关：某些 Megatron 分支（例如 NPU 侧的 MindSpeed）没有声明这些参数，
-# 解析后字段根本不存在，而 Relax 会在校验与业务代码里直接读取。
-# 语义：未声明 == 未启用 == False；一旦启用，仍由能力校验决定是否支持。
+# Boolean switches: some Megatron branches (e.g. the NPU-side MindSpeed build) do
+# not declare these parameters, so the field does not exist at all after parsing,
+# while Relax reads it directly during validation and business logic.
+# Semantics: undeclared == not enabled == False; once enabled, capability checks
+# still decide whether the feature is supported.
 MEGATRON_BOOLEAN_FALLBACKS: dict[str, tuple[bool, str]] = {
     "dynamic_context_parallel": (
         False,
-        "NPU 侧 Megatron 未声明该开关；未启用即等价于 False，启用时由 "
-        "_validate_dynamic_context_parallel 做 npu/mpu 能力校验。",
+        "NPU-side Megatron does not declare this switch; absent means disabled "
+        "(False), and enabling it goes through the npu/mpu capability check in "
+        "_validate_dynamic_context_parallel.",
     ),
 }
 
 
 def resolve_aliased_field(args: Any, name: str) -> tuple[str, Any]:
-    """按 ``FIELD_ALIASES`` 解析字段改名。
+    """Resolve a renamed field according to ``FIELD_ALIASES``.
 
     Args:
-        args: 已完成 Megatron 解析的参数对象。
-        name: Relax 代码使用的规范字段名。
+        args: parameter object that has already been through Megatron parsing.
+        name: canonical field name used by Relax code.
 
     Returns:
-        ``(实际存在的字段名, 取值)``。
+        ``(name_that_exists, value)``.
 
     Raises:
-        AttributeError: 规范名与别名都不存在。这意味着当前 Megatron 版本两个名字都
-            不支持，属于必须显式暴露的环境问题，不做静默兜底。
+        AttributeError: neither the canonical name nor the alias exists. This
+            means the current Megatron version supports neither name, which is
+            an environment problem that must surface instead of being silently
+            default-filled.
     """
     alias, _ = FIELD_ALIASES[name]
     if hasattr(args, name):
@@ -88,11 +99,13 @@ def resolve_aliased_field(args: Any, name: str) -> tuple[str, Any]:
 
 @lru_cache(maxsize=1)
 def supports_dynamic_context_parallel() -> bool:
-    """当前 Megatron 版本是否支持 ``dynamic_context_parallel``。
+    """Whether the current Megatron version supports
+    ``dynamic_context_parallel``.
 
-    差异来源：Megatron-Core 在 ``mpu.initialize_model_parallel`` 中加入
-    ``dynamic_context_parallel`` 形参后，Relax 才能把该开关传下去。用签名探测而不是 版本号比较，可以同时覆盖 dev
-    分支与回移植版本。
+    Source of the difference: Relax can only pass the switch through once
+    Megatron-Core added the ``dynamic_context_parallel`` parameter to
+    ``mpu.initialize_model_parallel``. Probing the signature instead of
+    comparing version numbers covers both dev branches and backport releases.
     """
     from megatron.core import mpu
 
@@ -100,10 +113,12 @@ def supports_dynamic_context_parallel() -> bool:
 
 
 def fill_missing_boolean_fields(args: Any) -> None:
-    """在首次校验与直读之前，为上游未声明的布尔开关补 ``False``。
+    """Fill ``False`` for boolean switches the upstream parser never declared.
 
-    只补 **缺失** 的字段，已提供的值（包括显式 ``True``）一律保留，因此可以重复调用。 与
-    ``resolve_aliased_field`` 的区别：这里处理的是"上游根本没有这个参数"，而不是改名。
+    Only **missing** fields are written; any value already present (including
+    an explicit ``True``) is preserved, so the call is repeatable. Unlike
+    ``resolve_aliased_field``, this handles "upstream has no such parameter at
+    all" rather than a rename.
     """
     for name, (default, _) in MEGATRON_BOOLEAN_FALLBACKS.items():
         if not hasattr(args, name):
@@ -111,20 +126,23 @@ def fill_missing_boolean_fields(args: Any) -> None:
 
 
 def uses_canonical_norm_epsilon(args: Any) -> bool:
-    """当前 Megatron 是否以规范名 ``norm_epsilon`` 暴露 RMSNorm epsilon。
+    """Whether the current Megatron exposes RMSNorm epsilon as
+    ``norm_epsilon``.
 
-    差异来源：Megatron-Core 把 ``layernorm_epsilon`` 更名为 ``norm_epsilon``；固定镜像 （MCore ``4a4de865``）只有旧名。
-    HF 校验的比较范围依赖这一判定，见
-    ``relax/backends/megatron/arguments.py::_hf_validate_args``。
+    Source of the difference: Megatron-Core renamed ``layernorm_epsilon`` to
+    ``norm_epsilon``; the pinned mirror (MCore ``4a4de865``) only has the old
+    name. The comparison scope of the HF validation depends on this predicate,
+    see ``relax/backends/megatron/arguments.py::_hf_validate_args``.
     """
     return hasattr(args, "norm_epsilon")
 
 
 def set_rope_type_default(args: Any) -> None:
-    """按 Relax 语义补 ``rope_type`` 的缺省值。
+    """Fill the ``rope_type`` default according to Relax semantics.
 
-    差异来源：``rope_type`` 在 Megatron 中缺省为 ``None``，需按是否 MLA 推导为 yarn /
-    rope。字段本身不存在的版本不做任何写入。
+    Source of the difference: ``rope_type`` defaults to ``None`` in Megatron
+    and must be derived to yarn / rope based on whether MLA is used. Versions
+    where the field itself does not exist are left untouched.
     """
     if hasattr(args, "rope_type") and args.rope_type is None:
         args.rope_type = "yarn" if args.multi_latent_attention else "rope"
@@ -142,7 +160,7 @@ def _format_optimizer_fallback(name: str, value: object) -> str:
 
 
 def validate_fp16_optimizer_args(args: Any) -> None:
-    """校验 FP16 optimizer 相关字段（仅在校验阶段调用）。"""
+    """Validate the FP16 optimizer fields (called during validation only)."""
     if getattr(args, "loss_scale", None) is None:
         for name in DYNAMIC_LOSS_SCALE_FIELDS:
             value = getattr(args, name)
@@ -171,11 +189,13 @@ def validate_fp16_optimizer_args(args: Any) -> None:
 
 
 def resolve_optimizer_precision_args(args: Any, logger: Any = None) -> Any:
-    """在 Megatron 校验前解析 precision optimizer 参数。
+    """Resolve precision optimizer parameters before Megatron validation.
 
-    旧版 Megatron 在 ``--fp16`` 下隐式启用 precision-aware optimizer，新版需要显式 开关。字段为
-    ``None`` 时按 ``FP16_OPTIMIZER_FALLBACKS``（fp16 路径）或 ``OptimizerConfig``
-    原生默认值（bf16 路径）补齐，后者保证与上游一致。
+    Older Megatron versions enabled the precision-aware optimizer implicitly
+    under ``--fp16``; newer versions need the explicit switch. Fields left
+    ``None`` are filled from ``FP16_OPTIMIZER_FALLBACKS`` (fp16 path) or from
+    the native ``OptimizerConfig`` defaults (bf16 path), the latter keeping
+    parity with upstream.
     """
     from megatron.core.optimizer import OptimizerConfig
 

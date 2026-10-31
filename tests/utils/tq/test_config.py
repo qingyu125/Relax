@@ -63,7 +63,8 @@ def test_validate_config_matrix(overrides: dict[str, Any], expected_error: str |
 
 
 def test_declared_defaults_validate_clean() -> None:
-    """参数对象始终完整（finalize 保证），默认值下不应产生校验错误。"""
+    """The parameter object is always complete (guaranteed by finalize); with
+    defaults, no validation error should occur."""
     assert validate_config(build_relax_args()) == []
 
 

@@ -33,7 +33,7 @@ def loss_fn():
     namespace = {
         "torch": torch,
         "Envs": Envs,
-        # 提取的函数体直接引用了 loss.py 顶层的 get_algorithm。
+        # The extracted function body references loss.py's top-level get_algorithm directly.
         "get_algorithm": get_algorithm,
         "ce_implementation": lambda branch: "native",
         "checkpoint": checkpoint,

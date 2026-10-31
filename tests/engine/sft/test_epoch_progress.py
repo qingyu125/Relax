@@ -88,7 +88,7 @@ def test_sft_epoch_progress_custom_dataset_clears_unknown_denominator():
         num_rollout=10,
         num_epoch=None,
     )
-    # 运行期派生属性：由 resolve_sft_num_rollout 写入，这里先给一个"未知分母"。
+    # Runtime-derived attribute: written by resolve_sft_num_rollout; seed an "unknown denominator" here.
     args.num_rollout_per_epoch_for_metrics = 2
     resolve_sft_num_rollout(args)
 

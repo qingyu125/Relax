@@ -20,8 +20,9 @@ from relax.utils.misc import create_namespace
 
 def create_demo_args() -> argparse.Namespace:
     """Create demo arguments for metrics service configuration."""
-    # 该入口不经过训练参数解析与 finalize_args，因此这里必须给出
-    # MetricsService/MetricsServiceAdapter 直接读取的全部字段。
+    # This entry point does not go through training argument parsing or
+    # finalize_args, so every field read directly by
+    # MetricsService/MetricsServiceAdapter must be provided here.
     args_dict = {
         "use_wandb": False,  # Set to True if you have W&B configured
         "use_tensorboard": True,

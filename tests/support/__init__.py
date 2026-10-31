@@ -1,7 +1,8 @@
 # Copyright (c) 2026 Relax Authors. All Rights Reserved.
 
-"""测试公共支撑代码（参数构造器、断言工具等）。
+"""Shared test support code (argument builders, assertion helpers, etc.).
 
-放在 ``tests/support`` 而不是各用例文件里，是为了让"测试参数的唯一构造方式"本身
-可以被测试和复用，见 ``tests/utils/test_argument_defaults_contract.py``。
+The package lives in ``tests/support`` instead of individual test files so that
+"the single way tests build parameter objects" can itself be tested and reused,
+see ``tests/utils/test_argument_defaults_contract.py``.
 """

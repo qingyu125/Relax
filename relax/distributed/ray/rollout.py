@@ -4679,7 +4679,7 @@ def _start_router(
         router_args.log_level = "warn"
         router_args.request_timeout_secs = args.sglang_router_request_timeout_secs
 
-        # sglang_router_policy 由 sglang 子解析器声明，finalize_args 会保证字段存在。
+        # sglang_router_policy is declared by the sglang sub-parser; finalize_args guarantees the field exists.
         if args.sglang_router_policy:
             router_args.policy = args.sglang_router_policy
 

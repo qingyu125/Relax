@@ -1,9 +1,10 @@
 # Copyright (c) 2026 Relax Authors. All Rights Reserved.
 
-"""Megatron 兼容层（args_compat）的单元测试。
+"""Unit tests for the Megatron compatibility layer (args_compat).
 
-这些用例只覆盖"字段改名 / 取值回退 / 能力探测"三类兼容语义，不依赖 GPU； 需要真实 Megatron 的用例用 ``importorskip``
-优雅跳过，保持 CPU CI 可跑。
+These cases only cover the three compatibility semantics — field renames, value
+fallbacks and capability probing — and do not need a GPU; cases that need real
+Megatron skip gracefully via ``importorskip`` so CPU CI stays green.
 """
 
 import sys
@@ -25,7 +26,8 @@ def test_resolve_aliased_field_falls_back_to_legacy_name():
 
 
 def test_resolve_aliased_field_reports_missing_field():
-    """两个名字都不存在说明 Megatron 版本不受支持，必须显式失败。"""
+    """Neither name exists, meaning the Megatron version is unsupported: it
+    must fail explicitly."""
     with pytest.raises(AttributeError, match="neither 'norm_epsilon'"):
         args_compat.resolve_aliased_field(Namespace(), "norm_epsilon")
 
@@ -89,7 +91,8 @@ def test_validate_fp16_optimizer_rejects_non_boolean_flag():
 
 
 def test_alias_table_documents_its_source():
-    """新增兼容项必须写明差异来源，避免变成无出处的兜底表。"""
+    """New compatibility entries must document their source, so the table never
+    becomes unattributed fallbacks."""
     for canonical, (alias, note) in args_compat.FIELD_ALIASES.items():
         assert canonical and alias and note
 
@@ -100,7 +103,8 @@ def test_supports_dynamic_context_parallel_requires_megatron():
 
 
 def test_fill_missing_boolean_fields_adds_absent_switch():
-    """NPU 侧 Megatron 没有声明该开关：补 False，而不是让直读抛 AttributeError。"""
+    """NPU-side Megatron does not declare the switch: fill False instead of
+    letting direct reads raise AttributeError."""
     args = Namespace()
 
     args_compat.fill_missing_boolean_fields(args)
@@ -138,19 +142,21 @@ def test_uses_canonical_norm_epsilon_detects_legacy_name():
 
 
 def test_megatron_test_defaults_match_upstream(monkeypatch):
-    """测试侧镜像的 Megatron 字段必须与上游默认值一致。"""
+    """The Megatron fields mirrored on the test side must match the upstream
+    defaults."""
     pytest.importorskip("megatron.training.arguments")
 
     from megatron.training.arguments import parse_args as megatron_parse_args
 
     from tests.support.megatron_defaults import MEGATRON_TEST_DEFAULTS
 
-    # 上游 parse_args 只接受 (extra_args_provider, ignore_unknown_args)，且会读取
-    # sys.argv；这里显式隔离，避免 pytest 的命令行被当成 Megatron 参数。
+    # Upstream parse_args only accepts (extra_args_provider, ignore_unknown_args)
+    # and reads sys.argv; isolate it explicitly so pytest's command line is not
+    # consumed as Megatron arguments.
     monkeypatch.setattr(sys, "argv", ["megatron"])
     upstream = megatron_parse_args(extra_args_provider=None)
     for name, value in MEGATRON_TEST_DEFAULTS.items():
         if not hasattr(upstream, name):
-            # 该字段在当前 Megatron 版本由其他解析路径提供，镜像值仅用于构造测试对象。
+            # The field is provided by another parsing path in this Megatron version; the mirror value only builds test objects.
             continue
         assert getattr(upstream, name) == value, name

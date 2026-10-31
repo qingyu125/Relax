@@ -2999,11 +2999,13 @@ def get_slime_extra_args_provider(add_custom_arguments=None):
 
 
 def build_pre_parse_parser():
-    """构造只含"解析流程控制参数"的解析器。
+    """Build a parser containing only the "parse-flow control" arguments.
 
-    这些参数决定后续走哪条解析路径，因此必须先于 megatron/sglang 解析出来，并从 ``add_slime_arguments``
-    中移除以免重复注册。单独暴露解析器是为了让测试可以复用同 一份声明取默认值（见
-    ``tests/support/args.py``），不再手抄默认值表。
+    These arguments decide which parsing path runs next, so they must be parsed
+    before megatron/sglang parsing and removed from ``add_slime_arguments`` to
+    avoid duplicate registration. Exposing the parser separately lets tests
+    reuse the same declarations for defaults (see ``tests/support/args.py``)
+    instead of hand-copying the default table.
     """
     parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
     parser.add_argument("--train-backend", type=str, choices=["megatron", "fsdp"], default="megatron")
@@ -3130,9 +3132,11 @@ def _parse_args_impl(add_custom_arguments=None, *, model_source=None):
     # overriding an intentional --start-rollout-id.
     args._start_rollout_id_explicit = args.start_rollout_id is not None
 
-    # 参数解析到此完成：合并后可能存在"本次路径未解析"的字段（例如跳过 sglang 时
-    # 缺失的 sglang_*），也可能存在"解析期无法确定、运行期才写入"的派生属性。
-    # 统一在收尾阶段补齐，下游即可直接读 args.xxx。
+    # Argument parsing ends here: after the merge the namespace may contain
+    # fields "not parsed on this path" (e.g. missing sglang_* when sglang was
+    # skipped), plus derived attributes "undeterminable at parse time, written
+    # at runtime". The finalization stage fills them uniformly so downstream
+    # code can read args.xxx directly.
     finalize_args(args)
 
     # Serialize the driver-derived descriptor with args to every Ray actor.

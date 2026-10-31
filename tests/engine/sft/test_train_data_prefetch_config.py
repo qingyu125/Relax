@@ -16,7 +16,7 @@ from tests.support.args import build_relax_args
 _SOURCE = Path(__file__).resolve().parents[3] / "relax/utils/arguments.py"
 
 
-# Megatron 声明、Relax 只读的字段：构造器不管这些，单独覆盖。
+# Fields declared by Megatron and read-only for Relax: the builder does not manage these; override separately.
 _MEGATRON_FIELDS = {
     "pipeline_model_parallel_size": 1,
     "virtual_pipeline_model_parallel_size": None,
@@ -98,8 +98,9 @@ def test_rl_preserves_explicit_per_rank_fetch(per_rank):
 
 
 def test_pipeline_accepts_non_sft_arguments():
-    # 非 SFT 路径不需要 SFT 专属字段，但参数对象本身必须是完整的：
-    # loss_type 取声明默认值（不是 sft/dpo/rm），因此走 else 分支。
+    # The non-SFT path needs no SFT-specific fields, but the parameter object
+    # itself must be complete: loss_type keeps its declared default (not
+    # sft/dpo/rm), so the else branch runs.
     args = build_relax_args(train_backend="megatron", per_rank_fetch=True)
     configure_sft_data_pipeline(args)
     assert args.per_rank_fetch is True

@@ -111,5 +111,5 @@ def test_image_sft_partition_requires_shared_attempt():
 
 @pytest.mark.parametrize("loss_type,prefix", [("sft", "sft_"), ("dpo", "sft_"), ("rm", "sft_"), ("policy", "train_")])
 def test_partition_naming_preserves_non_image_modes(loss_type, prefix):
-    # is_i2i_sft 直接读 generation_task，参数对象必须是完整构造。
+    # is_i2i_sft reads generation_task directly, so the parameter object must be fully built.
     assert sft_partition_id(build_relax_args(loss_type=loss_type), 10) == f"{prefix}10"

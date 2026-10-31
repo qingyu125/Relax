@@ -131,7 +131,7 @@ class TestMetricsServiceAdapter(unittest.TestCase):
     """Test MetricsServiceAdapter for backward compatibility."""
 
     def setUp(self):
-        # 参数对象必须完整：适配器会直接读取 timeline_dump_dir 等字段。
+        # The parameter object must be complete: the adapter reads timeline_dump_dir and other fields directly.
         self.args = build_relax_args(use_metrics_service=True)
 
         # Mock the client to avoid actual HTTP calls

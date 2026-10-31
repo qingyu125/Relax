@@ -41,7 +41,7 @@ def test_train_profiler_honors_rank_selection(monkeypatch, rank, selected):
 
 
 def test_train_profiler_without_rank_filter_preserves_legacy_behavior(monkeypatch):
-    # 声明默认值是 []（与 MCore 的 ProfilingConfig 一致），因此"不过滤 rank"需要显式传 None。
+    # The declared default is [] (matching MCore's ProfilingConfig), so "no rank filtering" needs an explicit None.
     get_rank = Mock(side_effect=AssertionError("No distributed state is needed without a rank filter"))
     monkeypatch.setattr(profile_utils.torch.distributed, "get_rank", get_rank)
     assert profile_utils._should_profile_train_rank(build_relax_args(profile_ranks=None))

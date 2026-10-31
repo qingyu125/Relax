@@ -10,8 +10,10 @@ from relax.utils.training.inline_log_probs import can_reuse_colocate_log_probs
 from tests.support.args import build_relax_args
 
 
-# Megatron 声明、Relax 只读的字段：共享构造器不管这些，按需在这里覆盖。
-# 新增覆盖前先确认它确实由 Megatron 解析器声明，而不是 Relax 参数。
+# Fields declared by Megatron and read-only for Relax: the shared builder does
+# not manage these; override them here as needed.
+# Before adding an override, confirm the field is really declared by the
+# Megatron parser and is not a Relax parameter.
 _MEGATRON_FIELDS: dict[str, object] = {
     "pipeline_model_parallel_size": 1,
     "hidden_dropout": 0.0,

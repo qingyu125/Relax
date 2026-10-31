@@ -12,13 +12,13 @@ from relax.engine.sft.runtime import is_preference_mode, validate_preference_arg
 from tests.support.args import build_relax_args
 
 
-# 非 Relax 声明的字段（Megatron 字段与遗留别名）：构造器不管这些，单独覆盖。
+# Fields not declared by Relax (Megatron fields and legacy aliases): the builder does not manage these; override separately.
 _NON_DECLARED_FIELDS = {
     "tensor_model_parallel_size": 1,
     "pipeline_model_parallel_size": 1,
     "hidden_dropout": 0.0,
     "attention_dropout": 0.0,
-    # 历史别名，参数定义尚未声明（遗留项，见 PR 描述）
+    # Historical alias, not yet declared by the parameter definitions (leftover, see PR description)
     "use_gloo_process_groups": True,
 }
 

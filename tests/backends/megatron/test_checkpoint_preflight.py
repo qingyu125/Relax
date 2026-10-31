@@ -27,10 +27,12 @@ _KNOWN: frozenset | None = None
 
 
 def _args(**kw):
-    """完整参数对象；非 Relax 声明的字段显式透传。
+    """Fully populated parameter object; fields not declared by Relax are
+    passed through explicitly.
 
-    声明集合惰性构建：本模块会被 multiprocessing.spawn 的子进程重新导入， 顶层的重量级导入会拖慢 rendezvous，导致
-    init_process_group 超时。
+    The declaration set is built lazily: this module gets re-imported by
+    multiprocessing.spawn subprocesses, and heavyweight top-level imports slow
+    the rendezvous enough to time out init_process_group.
     """
     global _KNOWN
     if _KNOWN is None:
@@ -211,8 +213,9 @@ def test_checkpoint_lora_metadata_uses_explicit_step(monkeypatch, tmp_path):
     (tmp_path / "iter_0000009").mkdir()
     seen = []
     marker = {"format_version": 1}
-    # 保存的 checkpoint metadata 可以保持稀疏（只含被测字段），
-    # 但运行期参数对象必须完整：_load_checkpoint_metadata 会直接读 loss_type。
+    # The saved checkpoint metadata may stay sparse (only the fields under test),
+    # but the runtime parameter object must be complete: _load_checkpoint_metadata
+    # reads loss_type directly.
     saved_args = Namespace(**{checkpoint._LORA_CHECKPOINT_METADATA_ATTR: marker})
     monkeypatch.setattr(
         dist_checkpointing, "load_common_state_dict", lambda path: seen.append(path) or {"args": saved_args}

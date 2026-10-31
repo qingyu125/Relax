@@ -52,8 +52,9 @@ from relax.distributed.ray.rollout_scale_types import ScaleOutRequest, ScaleOutS
 from relax.utils.metrics.rollout_metrics import compute_metrics_from_samples
 from relax.utils.types import Sample
 
-# 该脚本刻意只依赖 stdlib：本用例验证 rollout_metrics 不引入运行时依赖，
-# 因此不用 tests.support.args（它会导入参数定义进而依赖 sglang）。
+# The script deliberately depends only on the stdlib: this case verifies that
+# rollout_metrics pulls in no runtime dependencies, so tests.support.args is
+# not used (it imports the declarations, which depend on sglang).
 args = SimpleNamespace(
     advantage_estimator="grpo",
     reward_key=None,

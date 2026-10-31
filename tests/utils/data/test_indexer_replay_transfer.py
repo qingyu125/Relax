@@ -79,7 +79,8 @@ def test_indexer_replay_dynamic_sample_field_round_trips_when_enabled():
 
 
 def test_indexer_replay_field_is_absent_when_flag_is_false():
-    """字段缺失不再是合法状态：默认值取声明值 False，行为与显式关闭一致。"""
+    """A missing field is no longer a legal state: the default is the declared
+    False, matching an explicit off."""
     default_args = build_relax_args(loss_type="policy_loss", use_opd=False, use_rollout_routing_replay=False)
     explicit_args = build_relax_args(
         loss_type="policy_loss",

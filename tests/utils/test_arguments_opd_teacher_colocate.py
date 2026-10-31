@@ -77,9 +77,11 @@ def test_sft_invalid_multimodal_strategy_option(arguments_module, argv, expected
 
 
 def _opd_args() -> Namespace:
-    """OPD（on-policy distillation）场景的参数对象。
+    """Parameter object for the OPD (on-policy distillation) scenario.
 
-    只声明与声明默认值不同的 18 个字段，其余 87 个字段由参数定义提供 （见 tests/support/args.py）。
+    Only the 18 fields that differ from the declared defaults are written; the
+    other 87 fields come from the parameter declarations (see
+    tests/support/args.py).
     """
     return build_relax_args(
         loss_type="grpo",
