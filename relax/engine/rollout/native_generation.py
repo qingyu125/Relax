@@ -711,7 +711,10 @@ def _read_eval_prompts(args, cfg) -> List[Sample]:
     if not path or not os.path.exists(path):
         logger.warning(f"native evaluate_rollout: eval dataset path {path!r} does not exist.")
         return []
-    prompt_key = cfg.input_key or args.input_key or "prompt"
+    # ``cfg`` is a per-dataset config entry (not the parsed args namespace) and
+    # ``input_key`` is not a declared Relax parameter, so both reads keep the
+    # original optional-field semantics here.
+    prompt_key = getattr(cfg, "input_key", None) or getattr(args, "input_key", None) or "prompt"
     samples: List[Sample] = []
     with open(path, encoding="utf-8") as handle:
         for line in handle:
