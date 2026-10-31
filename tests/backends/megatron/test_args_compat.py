@@ -155,8 +155,20 @@ def test_megatron_test_defaults_match_upstream(monkeypatch):
     # consumed as Megatron arguments.
     monkeypatch.setattr(sys, "argv", ["megatron"])
     upstream = megatron_parse_args(extra_args_provider=None)
+    # Upstream defaults that legitimately differ across the supported parsers:
+    # profile_ranks derives [] on the pinned GPU dev parser (MCore 4a4de865),
+    # while the NPU image (docker/Dockerfile.npu, core_v0.16.1) declares [0] in
+    # ProfilingConfig and its argument factory uses that list as the parse
+    # default. The mirror keeps the GPU value; the contract only requires the
+    # upstream value to be one of the documented variants — do not widen the
+    # mirror to a single value or move production defaults to match a mirror.
+    allowed_upstream_variants = {"profile_ranks": ([], [0])}
     for name, value in MEGATRON_TEST_DEFAULTS.items():
         if not hasattr(upstream, name):
             # The field is provided by another parsing path in this Megatron version; the mirror value only builds test objects.
             continue
-        assert getattr(upstream, name) == value, name
+        upstream_value = getattr(upstream, name)
+        if name in allowed_upstream_variants:
+            assert upstream_value in allowed_upstream_variants[name], name
+            continue
+        assert upstream_value == value, name

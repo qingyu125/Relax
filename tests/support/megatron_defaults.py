@@ -24,9 +24,13 @@ MEGATRON_TEST_DEFAULTS: dict[str, Any] = {
     "seq_length": None,
     # The profiler fields are declared by the Megatron parser (see the
     # "--record-memory-history ... defined in Megatron" comment in arguments.py).
-    # ProfilingConfig.profile_ranks defaults to [] (ArgumentGroupFactory uses the
-    # factory result as the argparse default); tests that need the old None
-    # behaviour must pass profile_ranks=None explicitly.
+    # ProfilingConfig.profile_ranks defaults to [] on the pinned GPU dev parser
+    # (ArgumentGroupFactory uses the factory result as the argparse default),
+    # while the NPU image (docker/Dockerfile.npu, core_v0.16.1) declares [0];
+    # the mirror keeps the GPU value and
+    # test_megatron_test_defaults_match_upstream accepts both documented
+    # variants. Tests that need the old None behaviour must pass
+    # profile_ranks=None explicitly.
     "use_pytorch_profiler": False,
     "record_memory_history": False,
     "profile_ranks": [],
