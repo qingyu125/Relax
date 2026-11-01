@@ -40,7 +40,8 @@ def _args(**overrides):
         grpo_std_normalization=True,
     )
     defaults.update(overrides)
-    # 未在 Relax 参数声明表中的字段不能走 kwargs，构造后显式赋回。
+    # Fields outside the Relax declaration table cannot go through builder
+    # kwargs: set them after construction.
     declared = declared_parameter_names()
     args = build_relax_args(**{k: v for k, v in defaults.items() if k in declared})
     for k, v in defaults.items():

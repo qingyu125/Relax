@@ -1312,7 +1312,10 @@ def test_resolve_shm_root_requires_existing_directory(tmp_path):
         m._resolve_shm_root(FileRoot())
 
     class C:
-        pass  # 无属性 → 默认 /dev/shm
+        # s3_model_shm_root is a declared parameter (default "/dev/shm"), so a
+        # parsed args object always carries it; the default-value path is the
+        # declared None-ish -> "/dev/shm" fallback, not a missing attribute.
+        s3_model_shm_root = None
 
     assert m._resolve_shm_root(C()) == "/dev/shm"
 

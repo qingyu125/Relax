@@ -35,8 +35,8 @@ def _args(**overrides):
         score_centering_vocab_size=8,
     )
     values.update(overrides)
-    # score_centering_vocab_size 等不在 Relax 参数声明表中，不能走 kwargs，
-    # 构造后显式赋回。
+    # Fields such as score_centering_vocab_size are not Relax declarations and
+    # cannot go through builder kwargs: set them after construction.
     declared = declared_parameter_names()
     args = build_relax_args(**{k: v for k, v in values.items() if k in declared})
     for k, v in values.items():
