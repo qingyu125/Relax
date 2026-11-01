@@ -328,7 +328,7 @@ def _write_two_groups(tmp_path, group_size=4, shared_conditions=False):
         "advantages": torch.tensor([g * 100 + s for g in (0, 1) for s in range(group_size)]).float(),
         "skip_optimizer_step": torch.zeros(2 * group_size, dtype=torch.long),
     }
-    args = SimpleNamespace(artifact_root=str(tmp_path), generation_task="t2i")
+    args = build_relax_args(artifact_root=str(tmp_path), generation_task="t2i", micro_batch_size=0)
     return args, rows
 
 

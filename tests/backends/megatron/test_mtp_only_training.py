@@ -188,7 +188,9 @@ def _actor_args(**overrides) -> Namespace:
         "keep_old_actor": False,
     }
     defaults.update(overrides)
-    return Namespace(**defaults)
+    # The actor train path reads many more declared parameters directly
+    # (GPU/TE branches included), so the runtime args must be complete.
+    return build_relax_args(**defaults)
 
 
 @pytest.mark.parametrize("prepacked", [False, True])

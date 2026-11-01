@@ -258,7 +258,7 @@ def _rollout_args(**overrides):
         "use_dynamic_global_batch_size": False,
     }
     values.update(overrides)
-    return SimpleNamespace(**values)
+    return build_relax_args(**values)
 
 
 def _patch_rollout(monkeypatch, state, transfer):
