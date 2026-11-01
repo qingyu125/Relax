@@ -455,7 +455,10 @@ def test_real_controller_initialization_wires_health_callback_and_preserves_rest
     monkeypatch.setattr(module, "create_dcs_deployment", Mock(return_value=(None, None)))
     monkeypatch.setattr(module.Controller, "_initialize_data_system", Mock())
     monkeypatch.setattr(module.Controller, "register_all_serve", Mock())
-    config = build_relax_args(use_health_check=True, use_agentic_rollout=False)
+    # use_health_check is the contract under test; the metrics deployment is
+    # orthogonal and would try to Ray-Serve-bind the mocked health manager
+    # (healthy=self._health_manager.status), which cloudpickle cannot carry.
+    config = build_relax_args(use_health_check=True, use_metrics_service=False, use_agentic_rollout=False)
     controller = module.Controller(config)
     health.start.assert_called_once_with(
         on_unhealthy=controller._on_service_unhealthy, on_fatal=controller._on_service_fatal

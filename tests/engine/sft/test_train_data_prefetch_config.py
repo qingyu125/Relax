@@ -20,6 +20,12 @@ _SOURCE = Path(__file__).resolve().parents[3] / "relax/utils/arguments.py"
 _MEGATRON_FIELDS = {
     "pipeline_model_parallel_size": 1,
     "virtual_pipeline_model_parallel_size": None,
+    # Megatron/parser-owned parallelism fields used by the wholepack geometry
+    # contract: the shared builder does not declare them, so keep them as
+    # explicit post-construction overrides instead of builder kwargs.
+    "tensor_model_parallel_size": 1,
+    "expert_model_parallel_size": 1,
+    "expert_tensor_parallel_size": 1,
 }
 
 
@@ -213,6 +219,9 @@ def test_wholepack_recipe_keeps_raw_prefetch_and_valid_geometry(tp, capacity):
         sft_wholepack=True,
         tensor_model_parallel_size=tp,
         global_batch_size=1600,
+        # The wholepack contract requires one GBS1600 optimizer step per
+        # rollout; the shared builder's declared default would not satisfy it.
+        rollout_batch_size=1600,
         n_samples_per_prompt=1,
         expert_model_parallel_size=8,
         expert_tensor_parallel_size=1,
